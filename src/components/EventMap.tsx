@@ -1,10 +1,11 @@
 
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, GeoJSON } from "react-leaflet";
 import L from "leaflet";
 import "leaflet-routing-machine";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
 // Fix for default icon issues with webpack
 import "leaflet/dist/leaflet.css";
@@ -15,7 +16,6 @@ L.Icon.Default.mergeOptions({
     iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
     shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
-
 
 const defaultPosition: L.LatLngTuple = [17.783, 83.378]; 
 
@@ -71,6 +71,18 @@ const Routing = ({ userLocation, eventLocation }: Pick<EventMapProps, 'userLocat
     return null;
 };
 
+// This wrapper ensures the map container is only rendered on the client side.
+const ClientOnlyMapContainer = ({ children, ...props }: L.MapOptions & { children: ReactNode, [key: string]: any }) => {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  return isClient ? <MapContainer {...props}>{children}</MapContainer> : null;
+};
+
+
 export default function EventMap({
   interactive = false,
   onLocationSelect,
@@ -79,22 +91,19 @@ export default function EventMap({
   userLocation,
   showRoute = false,
 }: EventMapProps) {
-  const mapRef = useRef<HTMLDivElement>(null);
 
   const center = eventLocation || selectedLocation || L.latLng(defaultPosition[0], defaultPosition[1]);
 
   return (
-    <div ref={mapRef} style={{ height: '100%', width: '100%' }}>
-        <MapContainer center={center} zoom={16} scrollWheelZoom={true} className="rounded-lg h-full w-full z-0" maxBounds={[[17.7789300, 83.3724800], [17.7872100, 83.3817700]]}>
-        <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
-        {interactive && <LocationMarker onLocationSelect={onLocationSelect} selectedLocation={selectedLocation} />}
-        {eventLocation && <Marker position={eventLocation}><Popup>Event Location</Popup></Marker>}
-        {userLocation && <Marker position={userLocation}><Popup>Your Location</Popup></Marker>}
-        {showRoute && userLocation && eventLocation && <Routing userLocation={userLocation} eventLocation={eventLocation} />}
-        </MapContainer>
-    </div>
+    <ClientOnlyMapContainer center={center} zoom={16} scrollWheelZoom={true} className="rounded-lg h-full w-full z-0" maxBounds={[[17.7789300, 83.3724800], [17.7872100, 83.3817700]]}>
+      <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      />
+      {interactive && <LocationMarker onLocationSelect={onLocationSelect} selectedLocation={selectedLocation} />}
+      {eventLocation && <Marker position={eventLocation}><Popup>Event Location</Popup></Marker>}
+      {userLocation && <Marker position={userLocation}><Popup>Your Location</Popup></Marker>}
+      {showRoute && userLocation && eventLocation && <Routing userLocation={userLocation} eventLocation={eventLocation} />}
+    </ClientOnlyMapContainer>
   );
 }
