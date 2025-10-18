@@ -4,17 +4,21 @@
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, GeoJSON } from "react-leaflet";
 import L from "leaflet";
 import "leaflet-routing-machine";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import collegeData from "@/lib/college.json";
 
 // Fix for default icon issues with webpack
 import "leaflet/dist/leaflet.css";
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
+
+// This check is to prevent the error in some environments, though might not be the root cause.
+if (typeof L !== 'undefined' && L.Icon.Default.prototype instanceof L.Icon) {
+    delete (L.Icon.Default.prototype as any)._getIconUrl;
+    L.Icon.Default.mergeOptions({
+        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+    });
+}
 
 
 const defaultPosition: L.LatLngTuple = [17.783, 83.378]; 
@@ -44,11 +48,16 @@ const LocationMarker = ({ onLocationSelect, selectedLocation }: Pick<EventMapPro
 
 const Routing = ({ userLocation, eventLocation }: Pick<EventMapProps, 'userLocation' | 'eventLocation'>) => {
     const map = useMap();
+    const [routingControl, setRoutingControl] = useState<L.Routing.Control | null>(null);
 
     useEffect(() => {
         if (!map || !userLocation || !eventLocation) return;
         
-        const routingControl = L.Routing.control({
+        if (routingControl) {
+            map.removeControl(routingControl);
+        }
+
+        const newRoutingControl = L.Routing.control({
             waypoints: [
                 L.latLng(userLocation.lat, userLocation.lng),
                 L.latLng(eventLocation.lat, eventLocation.lng)
@@ -62,10 +71,14 @@ const Routing = ({ userLocation, eventLocation }: Pick<EventMapProps, 'userLocat
             },
             createMarker: function() { return null; } // Hide default markers
         }).addTo(map);
+        setRoutingControl(newRoutingControl);
 
         return () => {
-            map.removeControl(routingControl);
+          if (newRoutingControl) {
+            map.removeControl(newRoutingControl);
+          }
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [map, userLocation, eventLocation]);
 
     return null;
