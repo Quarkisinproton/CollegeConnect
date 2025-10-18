@@ -1,29 +1,38 @@
 /**
  * @file Firestore Security Rules
- * @description This ruleset allows public read access to events but restricts write access to authenticated users only.
+ * @description This ruleset implements a public-read, owner-write security model for events.
  *
- * Core Philosophy: Public read, owner-only write.  Any user can see the events, but only the creator can modify them.
- * Data Structure: Events are stored in a top-level `/events` collection.
+ * Core Philosophy:
+ *   Events are publicly readable, enabling wide access to event information.
+ *   Write access (create, update, delete) is restricted to authenticated users,
+ *   with ownership enforced to ensure users can only manage events they create.
+ *
+ * Data Structure:
+ *   - /events/{eventId}: Stores event details.
+ *     - Each event document must have a `clubPresidentId` field indicating the creator.
+ *
  * Key Security Decisions:
- *   - Public listing of all events.
- *   - Strict ownership enforcement for event creation, updates, and deletion via the `clubPresidentId` field.
- *   - No data validation is performed beyond ownership checks in this prototyping phase.
+ *   - Public read access for all events.
+ *   - Write access restricted to authenticated users only.
+ *   - Owner-only access for updates and deletes, based on the `clubPresidentId` field.
+ *   - Relational integrity is enforced on event creation, ensuring the `clubPresidentId` matches the authenticated user.
  *
- * Denormalization for Authorization: The `Event` documents store the `clubPresidentId` to simplify ownership checks. This avoids the need for complex lookups to determine the owner.
+ * Denormalization for Authorization:
+ *   - The `clubPresidentId` field is crucial for authorization. It must exist within each event document to determine ownership.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Grants public read access to events, but restricts write access to the event creator only.
+     * @description Manages access to the 'events' collection. Allows public read access but restricts write access to authenticated users who own the event.
      * @path /events/{eventId}
-     * @allow (get, list) - Any user can read any event.
-     * @allow (create) - Authenticated user creates a new event with clubPresidentId matching their auth UID.
-     * @allow (update, delete) - Authenticated user updates or deletes an existing event where clubPresidentId matches their auth UID.
-     * @deny (create) - Unauthenticated user attempts to create an event.
-     * @deny (update, delete) - Authenticated user attempts to update or delete an event they did not create.
-     * @principle Public read, owner-only write. All users can see the events; only the creator can modify them.
+     * @allow (get, list): Any user can read event data.
+     * @allow (create): Authenticated users can create events, provided they set the 'clubPresidentId' to their own UID.
+     * @allow (update, delete): Only the owner (clubPresidentId) of an event can modify or delete it.
+     * @deny (create): Unauthenticated users cannot create events.
+     * @deny (update, delete): Users cannot modify or delete events they don't own.
+     * @principle Enforces document ownership for writes while allowing public reads. Validates creatorId on create.
      */
     match /events/{eventId} {
       allow get: if true;
@@ -34,19 +43,19 @@ service cloud.firestore {
       allow delete: if isSignedIn() && isExistingOwner(resource.data.clubPresidentId);
     }
 
-    // ----- Helper functions -----
+    // --- Helper functions ---
 
     /**
      * @description Checks if the user is signed in.
-     * @return True if the user is signed in, false otherwise.
+     * @return True if the user is authenticated, false otherwise.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * @description Checks if the user is the owner of the resource.
-     * @param {string} userId - The user ID to check against.
+     * @description Checks if the user is the owner of the document.
+     * @param userId The user ID to compare against the request's auth UID.
      * @return True if the user is the owner, false otherwise.
      */
     function isOwner(userId) {
@@ -54,9 +63,9 @@ service cloud.firestore {
     }
 
     /**
-     * @description Checks if the user is the owner of the existing resource.
-     * @param {string} userId - The user ID to check against.
-     * @return True if the user is the owner and the resource exists, false otherwise.
+     * @description Checks if the user is the owner of the document and the document exists.
+     * @param userId The user ID to compare against the document's creatorId.
+     * @return True if the user is the owner and the document exists, false otherwise.
      */
     function isExistingOwner(userId) {
       return isOwner(userId) && resource != null;
