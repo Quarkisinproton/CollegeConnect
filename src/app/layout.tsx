@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { AuthProvider } from '@/providers/auth-provider';
+import { FirebaseClientProvider } from '@/firebase';
 import { Toaster } from "@/components/ui/toaster"
 import './globals.css';
 
@@ -25,10 +25,10 @@ export default function RootLayout({
         <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
       </head>
       <body className="font-body antialiased">
-        <AuthProvider>
+        <FirebaseClientProvider>
           {children}
           <Toaster />
-        </AuthProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );

@@ -7,11 +7,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
-import { addDoc, collection, Timestamp } from "firebase/firestore";
+import { collection, Timestamp } from "firebase/firestore";
 import L from "leaflet";
 
-import { db } from "@/lib/firebase";
-import { useAuth } from "@/hooks/use-auth";
+import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -23,7 +22,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Loader } from "@/components/ui/loader";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { doc, getDoc } from "firebase/firestore";
+import { CampusConnectUser } from "@/types";
 
 const EventMap = dynamic(() => import('@/components/EventMap'), {
   ssr: false,
@@ -40,7 +41,9 @@ const createEventSchema = z.object({
 });
 
 export default function CreateEventPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user: authUser, isUserLoading: authLoading } = useUser();
+  const [ user, setUser ] = useState<CampusConnectUser | null>(null);
+  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -50,6 +53,20 @@ export default function CreateEventPage() {
     resolver: zodResolver(createEventSchema),
     defaultValues: { name: "", description: "", time: "18:00", locationName: "" },
   });
+
+  useEffect(() => {
+    const fetchUser = async () => {
+        if(authUser) {
+            const userDocRef = doc(firestore, "users", authUser.uid);
+            const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+              setUser({ uid: authUser.uid, ...userDoc.data() } as CampusConnectUser);
+            }
+        }
+    }
+    fetchUser();
+  }, [authUser, firestore]);
+
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'president') {
@@ -63,7 +80,7 @@ export default function CreateEventPage() {
       toast({ variant: "destructive", title: "Location missing", description: "Please select a location on the map." });
       return;
     }
-    if (!user) return;
+    if (!authUser) return;
 
     setIsLoading(true);
 
@@ -71,8 +88,7 @@ export default function CreateEventPage() {
     const eventDateTime = new Date(values.date);
     eventDateTime.setHours(hours, minutes);
 
-    try {
-      await addDoc(collection(db, "events"), {
+    addDocumentNonBlocking(collection(firestore, "events"), {
         name: values.name,
         description: values.description,
         dateTime: Timestamp.fromDate(eventDateTime),
@@ -81,17 +97,13 @@ export default function CreateEventPage() {
           lng: selectedLocation.lng,
         },
         locationName: values.locationName,
-        createdBy: user.uid,
+        createdBy: authUser.uid,
         createdAt: Timestamp.now(),
       });
 
       toast({ title: "Success", description: "Event created successfully." });
       router.push("/dashboard");
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: `Failed to create event: ${error.message}` });
-    } finally {
       setIsLoading(false);
-    }
   }
 
   if (authLoading || user?.role !== 'president') {

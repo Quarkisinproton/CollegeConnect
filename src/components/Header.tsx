@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building, LogOut, PlusCircle, User as UserIcon } from "lucide-react";
+import { Building, LogOut, PlusCircle } from "lucide-react";
 import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, useUser } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,11 +16,31 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect, useState } from "react";
+import { doc, getDoc } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
+import { CampusConnectUser } from "@/types";
 
 export default function Header() {
-  const { user } = useAuth();
+  const { user: authUser } = useUser();
+  const [ user, setUser ] = useState<CampusConnectUser | null>(null);
+  const auth = useAuth();
+  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+
+   useEffect(() => {
+    const fetchUser = async () => {
+        if(authUser) {
+            const userDocRef = doc(firestore, "users", authUser.uid);
+            const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+              setUser({ uid: authUser.uid, ...userDoc.data() } as CampusConnectUser);
+            }
+        }
+    }
+    fetchUser();
+  }, [authUser, firestore]);
 
   const handleLogout = async () => {
     try {
@@ -66,7 +85,7 @@ export default function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src={user?.photoURL || ''} alt={user?.displayName || 'User'} />
+                    <AvatarImage src={authUser?.photoURL || ''} alt={user?.displayName || 'User'} />
                     <AvatarFallback>{getInitials(user?.displayName)}</AvatarFallback>
                   </Avatar>
                 </Button>

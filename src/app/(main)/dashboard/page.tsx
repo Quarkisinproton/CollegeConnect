@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
-import { collection, query, orderBy, onSnapshot, Timestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { collection, query, orderBy, Timestamp } from "firebase/firestore";
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
@@ -12,29 +11,15 @@ import type { CampusEvent } from "@/types";
 import { format } from 'date-fns';
 
 export default function DashboardPage() {
-  const [events, setEvents] = useState<CampusEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const firestore = useFirestore();
 
-  useEffect(() => {
-    const q = query(collection(db, "events"), orderBy("dateTime", "asc"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const eventsData: CampusEvent[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        // Filter out past events
-        if (data.dateTime.toDate() > new Date()) {
-            eventsData.push({ id: doc.id, ...data } as CampusEvent);
-        }
-      });
-      setEvents(eventsData);
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching events: ", error);
-      setLoading(false);
-    });
+  const eventsQuery = useMemoFirebase(() => 
+    query(collection(firestore, "events"), orderBy("dateTime", "asc"))
+  , [firestore]);
+  
+  const { data: events, isLoading: loading } = useCollection<CampusEvent>(eventsQuery);
 
-    return () => unsubscribe();
-  }, []);
+  const upcomingEvents = events?.filter(event => event.dateTime.toDate() > new Date()) || [];
 
   return (
     <div className="container py-8">
@@ -46,14 +31,14 @@ export default function DashboardPage() {
         <div className="flex justify-center items-center h-64">
           <Loader className="h-12 w-12" />
         </div>
-      ) : events.length === 0 ? (
+      ) : upcomingEvents.length === 0 ? (
         <div className="text-center py-16 border-2 border-dashed rounded-lg">
             <h2 className="text-xl font-semibold">No Upcoming Events</h2>
             <p className="text-muted-foreground mt-2">Check back later for new events on campus!</p>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {events.map((event) => (
+          {upcomingEvents.map((event) => (
             <Card key={event.id} className="flex flex-col">
               <CardHeader>
                 <CardTitle className="text-xl">{event.name}</CardTitle>

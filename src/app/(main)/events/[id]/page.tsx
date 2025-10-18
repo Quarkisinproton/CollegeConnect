@@ -4,13 +4,13 @@ import { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
 import { doc, getDoc } from "firebase/firestore";
 import L from "leaflet";
-import { db } from "@/lib/firebase";
+import { useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import { Loader } from "@/components/ui/loader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Clock, MapPin, Navigation, User } from "lucide-react";
 import { format } from "date-fns";
-import type { CampusEvent } from "@/types";
+import type { CampusEvent, CampusConnectUser } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
 const EventMap = dynamic(() => import('@/components/EventMap'), {
@@ -20,42 +20,25 @@ const EventMap = dynamic(() => import('@/components/EventMap'), {
 
 
 export default function EventDetailsPage({ params }: { params: { id: string } }) {
-  const [event, setEvent] = useState<CampusEvent | null>(null);
-  const [creatorName, setCreatorName] = useState<string>('Loading...');
-  const [loading, setLoading] = useState(true);
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const eventDocRef = useMemoFirebase(() => params.id ? doc(firestore, "events", params.id) : null, [firestore, params.id]);
+  const { data: event, isLoading: eventLoading } = useDoc<CampusEvent>(eventDocRef);
+  
+  const creatorDocRef = useMemoFirebase(() => event?.createdBy ? doc(firestore, "users", event.createdBy) : null, [firestore, event]);
+  const { data: creator, isLoading: creatorLoading } = useDoc<CampusConnectUser>(creatorDocRef);
+
   const [userLocation, setUserLocation] = useState<L.LatLng | null>(null);
   const [showRoute, setShowRoute] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
-    if (!params.id) return;
-
-    const fetchEvent = async () => {
-      setLoading(true);
-      const eventDocRef = doc(db, "events", params.id);
-      const eventDoc = await getDoc(eventDocRef);
-
-      if (eventDoc.exists()) {
-        const eventData = { id: eventDoc.id, ...eventDoc.data() } as CampusEvent;
-        setEvent(eventData);
-
-        // Fetch creator's name
-        const userDocRef = doc(db, "users", eventData.createdBy);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-            setCreatorName(userDoc.data().displayName || "Unknown Creator");
-        } else {
-            setCreatorName("Unknown Creator");
-        }
-      } else {
+    if (!eventLoading && !event) {
         toast({ variant: "destructive", title: "Error", description: "Event not found." });
-      }
-      setLoading(false);
-    };
+    }
+  }, [event, eventLoading, toast])
 
-    fetchEvent();
-  }, [params.id, toast]);
 
   const handleNavigate = () => {
     setIsNavigating(true);
@@ -78,6 +61,8 @@ export default function EventDetailsPage({ params }: { params: { id: string } })
       }
     );
   };
+
+  const loading = eventLoading || creatorLoading;
 
   if (loading) {
     return <div className="flex h-[calc(100vh-4rem)] items-center justify-center"><Loader className="h-12 w-12" /></div>;
@@ -104,7 +89,7 @@ export default function EventDetailsPage({ params }: { params: { id: string } })
                     <div className="flex items-start"><Calendar className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Date</p><p className="text-muted-foreground">{format(event.dateTime.toDate(), 'EEEE, MMMM do, yyyy')}</p></div></div>
                     <div className="flex items-start"><Clock className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Time</p><p className="text-muted-foreground">{format(event.dateTime.toDate(), 'p')}</p></div></div>
                     <div className="flex items-start"><MapPin className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Location</p><p className="text-muted-foreground">{event.locationName}</p></div></div>
-                    <div className="flex items-start"><User className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Organizer</p><p className="text-muted-foreground">{creatorName}</p></div></div>
+                    <div className="flex items-start"><User className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Organizer</p><p className="text-muted-foreground">{creator?.displayName || 'Unknown Creator'}</p></div></div>
                 </CardContent>
             </Card>
 
