@@ -1,0 +1,128 @@
+{
+  "entities": {
+    "Event": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Event",
+      "type": "object",
+      "description": "Represents an event on the campus.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Event entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the event."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the event."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date of the event.",
+          "format": "date-time"
+        },
+        "location": {
+          "type": "string",
+          "description": "The location of the event."
+        },
+        "clubPresidentId": {
+          "type": "string",
+          "description": "Reference to ClubPresident. (Relationship: ClubPresident 1:N Event)"
+        },
+        "latitude": {
+          "type": "number",
+          "description": "The latitude of the event location."
+        },
+        "longitude": {
+          "type": "number",
+          "description": "The longitude of the event location."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "date",
+        "location",
+        "clubPresidentId",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "ClubPresident": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ClubPresident",
+      "type": "object",
+      "description": "Represents a club president who can create events.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ClubPresident entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the club president."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the club president.",
+          "format": "email"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/clubPresidents/{clubPresidentId}",
+        "definition": {
+          "entityName": "ClubPresident",
+          "schema": {
+            "$ref": "#/backend/entities/ClubPresident"
+          },
+          "description": "Stores club president profiles, accessible only to the specific club president or admins.",
+          "params": [
+            {
+              "name": "clubPresidentId",
+              "description": "The unique identifier of the club president."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/clubPresidents/{clubPresidentId}/events/{eventId}",
+        "definition": {
+          "entityName": "Event",
+          "schema": {
+            "$ref": "#/backend/entities/Event"
+          },
+          "description": "Stores events created by a specific club president. Events are accessible only to the club president who created them.",
+          "params": [
+            {
+              "name": "clubPresidentId",
+              "description": "The unique identifier of the club president."
+            },
+            {
+              "name": "eventId",
+              "description": "The unique identifier of the event."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability, adhering to the core design principles and strategy mandates.\n\nAuthorization Independence: The structure avoids hierarchical authorization dependencies by using path-based ownership for events created by club presidents.  Events are stored under the club president's ID (`/clubPresidents/{clubPresidentId}/events/{eventId}`), which enables direct and atomic access control based on the `request.auth.uid`.\n\nStructural Segregation: The design maintains a homogeneous security posture by segregating events based on the club president who created them.  This prevents mixing data with different access needs within the same collection.\n\nAccess Modeling: Path-based ownership (`/clubPresidents/{clubPresidentId}/events/{eventId}`) provides a clear and secure way to manage access to events.  Only the authenticated user matching the `clubPresidentId` has full access to the events under that path.\n\nData Clarity and Predictability: The structure uses explicit naming conventions. Event data are organized under the corresponding `clubPresidentId` to enforce ownership.\n\nQAPs (Rules are not Filters): Secure `list` operations are enabled because events are segregated by `clubPresidentId`. Rules can efficiently filter events based on the authenticated user's ID without requiring complex queries or filtering logic within the rules themselves. The design supports listing all events for a specific president. Each club president can only see their own events."
+  }
+}
