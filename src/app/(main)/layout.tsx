@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useUser } from "@/firebase";
 import Header from "@/components/Header";
 import { Loader } from "@/components/ui/loader";
@@ -9,12 +9,13 @@ import { Loader } from "@/components/ui/loader";
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isUserLoading && !user) {
-      router.replace("/login");
+      router.replace(`/login?redirect=${pathname}`);
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, pathname]);
 
   if (isUserLoading || !user) {
     return (

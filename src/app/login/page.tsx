@@ -1,48 +1,103 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, initiateAnonymousSignIn } from "@/firebase";
-import { Loader } from "@/components/ui/loader";
+import { setDoc, doc, serverTimestamp } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { onAuthStateChanged } from "firebase/auth";
+import { Loader } from "@/components/ui/loader";
+import { User, Building } from "lucide-react";
+
+type Role = 'student' | 'president';
 
 export default function LoginPage() {
   const router = useRouter();
   const auth = useAuth();
+  const firestore = useFirestore();
   const { toast } = useToast();
-  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isLoading, setIsLoading] = useState<Role | null>(null);
 
-  useEffect(() => {
-    if (isSigningIn || auth.currentUser) return;
-  
-    setIsSigningIn(true);
-    initiateAnonymousSignIn(auth)
-      .catch((error: any) => {
-        toast({
-          variant: "destructive",
-          title: "Login Failed",
-          description: error.message || "An unexpected error occurred during sign-in.",
-        });
-        setIsSigningIn(false);
+  const handleLogin = async (role: Role) => {
+    setIsLoading(role);
+    try {
+      const userCredential = await initiateAnonymousSignIn(auth);
+      const user = userCredential.user;
+
+      const userDocRef = doc(firestore, "users", user.uid);
+      await setDoc(userDocRef, {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName || "Anonymous User",
+        role: role,
+        createdAt: serverTimestamp(),
+      }, { merge: true });
+
+      toast({
+        title: "Login Successful",
+        description: `You are now logged in as a ${role}.`,
       });
-  
-  }, [auth, toast, isSigningIn]);
-  
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
+
+      if (role === 'president') {
+        router.push('/events/create');
+      } else {
         router.push("/dashboard");
       }
-    });
 
-    return () => unsubscribe();
-  }, [auth, router]);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: error.message || "An unexpected error occurred during sign-in.",
+      });
+      setIsLoading(null);
+    }
+  };
 
   return (
-    <div className="flex h-screen w-full items-center justify-center">
-      <Loader className="h-12 w-12" />
-      <p className="ml-4 text-lg">Signing in...</p>
+    <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <Card className="w-full max-w-md shadow-2xl">
+        <CardHeader className="text-center">
+            <div className="flex justify-center items-center mb-4">
+                <Building className="h-8 w-8 text-primary" />
+            </div>
+          <CardTitle className="text-3xl font-bold">Welcome to Campus Connect</CardTitle>
+          <CardDescription className="text-muted-foreground">Please select your role to continue</CardDescription>
+        </CardHeader>
+        <CardContent className="p-8">
+          <div className="grid grid-cols-1 gap-6">
+            <Button
+              size="lg"
+              className="h-16 text-lg"
+              onClick={() => handleLogin('student')}
+              disabled={!!isLoading}
+            >
+              {isLoading === 'student' ? (
+                <Loader className="mr-2" />
+              ) : (
+                <User className="mr-2" />
+              )}
+              I am a Student
+            </Button>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="h-16 text-lg"
+              onClick={() => handleLogin('president')}
+              disabled={!!isLoading}
+            >
+              {isLoading === 'president' ? (
+                <Loader className="mr-2" />
+              ) : (
+                <User className="mr-2" />
+              )}
+              I am a Club President
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
