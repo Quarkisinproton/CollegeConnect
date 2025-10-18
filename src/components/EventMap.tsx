@@ -1,19 +1,14 @@
+
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, GeoJSON } from "react-leaflet";
 import L from "leaflet";
 import "leaflet-routing-machine";
-import { useEffect, useRef, useState } from "react";
-import collegeData from "@/lib/college.json"
-import { GeoJSON } from "react-leaflet";
+import { useEffect } from "react";
+import collegeData from "@/lib/college.json";
 
 // Fix for default icon issues with webpack
 import "leaflet/dist/leaflet.css";
-
-// This logic was incorrectly in a useEffect hook at the module level.
-// Moving it to the module level to run once on client-side module load.
-// The component is dynamically imported with ssr: false, so this is safe.
-// Using unpkg to ensure icons are loaded correctly.
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -76,7 +71,6 @@ const Routing = ({ userLocation, eventLocation }: Pick<EventMapProps, 'userLocat
     return null;
 };
 
-
 export default function EventMap({
   interactive = false,
   onLocationSelect,
@@ -86,28 +80,10 @@ export default function EventMap({
   showRoute = false,
 }: EventMapProps) {
 
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<L.Map | null>(null);
-
   const center = eventLocation || selectedLocation || L.latLng(defaultPosition[0], defaultPosition[1]);
 
-  useEffect(() => {
-    if (mapRef.current && !map) {
-      const mapInstance = L.map(mapRef.current, {
-        center: center,
-        zoom: 16,
-        scrollWheelZoom: true,
-      });
-      setMap(mapInstance);
-    }
-  }, [mapRef, map, center]);
-
-  if (!map) {
-    return <div ref={mapRef} style={{ height: "100%", width: "100%" }} />;
-  }
-
   return (
-    <MapContainer center={center} zoom={16} scrollWheelZoom={true} whenCreated={setMap} className="rounded-lg h-full w-full z-0" maxBounds={[[17.7789300, 83.3724800], [17.7872100, 83.3817700]]}>
+    <MapContainer center={center} zoom={16} scrollWheelZoom={true} className="rounded-lg h-full w-full z-0" maxBounds={[[17.7789300, 83.3724800], [17.7872100, 83.3817700]]}>
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
