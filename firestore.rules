@@ -1,83 +1,41 @@
 /**
- * @fileoverview Firestore Security Rules for the Campus Events App.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model. Club Presidents can only
- * access their own profiles and the events they create.
- *
- * Data Structure:
- * - /clubPresidents/{clubPresidentId}: Stores club president profiles.
- * - /clubPresidents/{clubPresidentId}/events/{eventId}: Stores events created by club presidents.
- *
- * Key Security Decisions:
- * - Users (Club Presidents) can only create, read, update, and delete their own profiles.
- * - Users (Club Presidents) can only create, read, update, and delete events under their own profile.
- * - Listing all club presidents is disallowed for security reasons.
- * - Data validation is relaxed to allow for rapid prototyping, focusing on authorization.
- *
- * Denormalization for Authorization:
- *  - The `clubPresidentId` is present in both the ClubPresident document and the Event document,
- *    enabling direct authorization checks without additional reads.
+ * @file Firestore Security Rules
+ * @core_philosophy This ruleset allows public read access to events while restricting write access to authenticated club presidents.
+ * @data_structure Events are stored in a top-level /events/{eventId} collection.
+ * @key_security_decisions Events are publicly readable, but only the creating club president can modify them. Listing of events is allowed for all users.
+ * @denormalization The `clubPresidentId` field on the Event document is critical for authorization.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to club president profiles.
-     * @path /clubPresidents/{clubPresidentId}
-     * @allow (create) - Authenticated user whose UID matches the clubPresidentId can create their profile.
-     * @allow (get, update, delete) - Authenticated user whose UID matches the clubPresidentId can read, update, or delete their profile.
-     * @deny (create) - Authenticated user whose UID does NOT match the clubPresidentId cannot create a profile.
-     * @deny (get, update, delete) - Authenticated user whose UID does NOT match the clubPresidentId cannot read, update, or delete another user's profile.
-     * @deny (list) - Listing all club presidents is disallowed.
-     * @principle Enforces document ownership; users can only access their own profile.
+     * @description Allows anyone to read events, but only allows the club president who created the event to modify or delete it.
+     * @path /events/{eventId}
+     * @allow (get, list) Any user can read events.
+     * @allow (create) An authenticated user can create an event if the `clubPresidentId` matches their `auth.uid`.
+     * @allow (update, delete) The user with `auth.uid` matching the event's `clubPresidentId` can modify or delete it, provided the document exists.
+     * @deny (create) An unauthenticated user cannot create an event.
+     * @deny (update, delete) A user who is not the original creator cannot modify or delete the event.
+     * @principle Public read access with owner-only writes, enforced via the `clubPresidentId` field.
      */
-    match /clubPresidents/{clubPresidentId} {
-      // Helper function to check if the user is signed in and owns the document.
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isOwner(clubPresidentId) {
-        return isSignedIn() && request.auth.uid == clubPresidentId;
-      }
-      function isExistingOwner(clubPresidentId) {
-        return isOwner(clubPresidentId) && resource != null;
-      }
-
-      allow get: if isOwner(clubPresidentId);
-      allow list: if false;
-      allow create: if isOwner(clubPresidentId) && request.resource.data.id == clubPresidentId;
-      allow update: if isExistingOwner(clubPresidentId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(clubPresidentId);
+    match /events/{eventId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.clubPresidentId == request.auth.uid;
+      allow update, delete: if isExistingOwner(resource.data.clubPresidentId);
     }
 
-    /**
-     * @description Controls access to events created by a specific club president.
-     * @path /clubPresidents/{clubPresidentId}/events/{eventId}
-     * @allow (create) - Authenticated club president can create an event under their profile.
-     * @allow (get, list, update, delete) - Authenticated club president can read, list, update, or delete their own events.
-     * @deny (create) - Authenticated user cannot create an event under another user's profile.
-     * @deny (get, list, update, delete) - Authenticated user cannot read, list, update or delete events under another user's profile.
-     * @principle Enforces document ownership for events; a user can only access events they created.
-     */
-    match /clubPresidents/{clubPresidentId}/events/{eventId} {
-      // Helper function to check if the user is signed in and owns the document.
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isOwner(clubPresidentId) {
-        return isSignedIn() && request.auth.uid == clubPresidentId;
-      }
-      function isExistingOwner(clubPresidentId) {
-        return isOwner(clubPresidentId) && resource != null;
-      }
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
 
-      allow get: if isOwner(clubPresidentId);
-      allow list: if isOwner(clubPresidentId);
-      allow create: if isOwner(clubPresidentId) && request.resource.data.clubPresidentId == clubPresidentId;
-      allow update: if isExistingOwner(clubPresidentId) && request.resource.data.clubPresidentId == resource.data.clubPresidentId;
-      allow delete: if isExistingOwner(clubPresidentId);
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
     }
   }
 }
