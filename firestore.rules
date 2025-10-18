@@ -1,65 +1,30 @@
-/**
- * @fileoverview Firestore Security Rules for the application.
- *
- * Core Philosophy:
- * This ruleset prioritizes security by enforcing ownership-based access control for event management.
- * It also permits public read access to event data for the dashboard.
- *
- * Data Structure:
- * - /events/{eventId}: Stores event data.
- *
- * Key Security Decisions:
- * - Events are publicly readable to populate the dashboard.
- * - Only authenticated users can create events.
- * - Only the event creator (ClubPresident) can update or delete events.
- *
- * Denormalization for Authorization:
- *  - The `Event` document denormalizes the `clubPresidentId` to enable efficient owner checks without additional reads.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     /**
-     * @description Defines access control for the `/events` collection.
+     * @description This ruleset enforces public read access to events while restricting write access to authenticated users. Only the club president who created an event can modify or delete it.
      * @path /events/{eventId}
-     * @allow (get, list): Any user can read event details or list all events.
-     * @allow (create): An authenticated user can create an event with their user ID as the `clubPresidentId`.
-     * @allow (update, delete): Only the user who created the event (identified by `clubPresidentId`) can modify or delete it, and only if the document exists.
+     * @allow (get, list): Any user can read event data.
+     * @allow (create): An authenticated user (club president) can create an event if the clubPresidentId matches their UID.
+     * @allow (update, delete): The club president who created the event can modify or delete it.
      * @deny (create): An unauthenticated user cannot create an event.
-     * @deny (update, delete): A user who is not the owner of the event cannot modify or delete it.
-     * @principle Enforces public read access with owner-only writes for event management.
+     * @deny (update, delete): A user who is not the original creator (clubPresidentId) cannot modify or delete the event.
+     * @principle Allows public read access while restricting write access to authorized users only using clubPresidentId as the owner.
      */
     match /events/{eventId} {
       allow get, list: if true;
       allow create: if isSignedIn() && request.resource.data.clubPresidentId == request.auth.uid;
-      allow update, delete: if isExistingOwner(resource.data.clubPresidentId);
+      allow update, delete: if isSignedIn() && isExistingOwner(resource.data.clubPresidentId);
     }
 
-    // --- Helper Functions ---
-
-    /**
-     * @description Checks if the user is signed in.
-     * @return {boolean} True if the user is signed in, false otherwise.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * @description Checks if the user is the owner of the resource.
-     * @param {string} userId The user ID to check against.
-     * @return {boolean} True if the user is the owner, false otherwise.
-     */
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    /**
-     * @description Checks if the user is the owner of the resource and the resource exists.
-     * @param {string} userId The user ID to check against.
-     * @return {boolean} True if the user is the owner and the resource exists, false otherwise.
-     */
     function isExistingOwner(userId) {
       return isOwner(userId) && resource != null;
     }
