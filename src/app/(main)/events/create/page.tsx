@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import dynamic from 'next/dynamic';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,15 +15,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar as CalendarIcon, AlertTriangle } from "lucide-react";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Loader } from "@/components/ui/loader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { doc, getDoc } from "firebase/firestore";
-import { CampusConnectUser } from "@/types";
 
 const EventMap = dynamic(() => import('@/components/EventMap'), {
   ssr: false,
@@ -41,8 +37,7 @@ const createEventSchema = z.object({
 });
 
 export default function CreateEventPage() {
-  const { user: authUser, isUserLoading: authLoading } = useUser();
-  const [ user, setUser ] = useState<CampusConnectUser | null>(null);
+  const { user: authUser } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
@@ -53,27 +48,6 @@ export default function CreateEventPage() {
     resolver: zodResolver(createEventSchema),
     defaultValues: { name: "", description: "", time: "18:00", locationName: "" },
   });
-
-  useEffect(() => {
-    const fetchUser = async () => {
-        if(authUser) {
-            const userDocRef = doc(firestore, "users", authUser.uid);
-            const userDoc = await getDoc(userDocRef);
-            if (userDoc.exists()) {
-              setUser({ uid: authUser.uid, ...userDoc.data() } as CampusConnectUser);
-            }
-        }
-    }
-    fetchUser();
-  }, [authUser, firestore]);
-
-
-  useEffect(() => {
-    if (!authLoading && user?.role !== 'president') {
-      toast({ variant: "destructive", title: "Unauthorized", description: "You don't have permission to create events." });
-      router.replace("/dashboard");
-    }
-  }, [user, authLoading, router, toast]);
 
   async function onSubmit(values: z.infer<typeof createEventSchema>) {
     if (!selectedLocation) {
@@ -104,22 +78,6 @@ export default function CreateEventPage() {
       toast({ title: "Success", description: "Event created successfully." });
       router.push("/dashboard");
       setIsLoading(false);
-  }
-
-  if (authLoading || user?.role !== 'president') {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        {authLoading ? <Loader className="h-12 w-12" /> : (
-            <Card className="m-4 text-center">
-                <CardHeader><CardTitle className="flex items-center"><AlertTriangle className="mr-2 text-destructive" />Unauthorized</CardTitle></CardHeader>
-                <CardContent>
-                    <p>You do not have permission to access this page.</p>
-                    <Button onClick={() => router.push('/dashboard')} className="mt-4">Go to Dashboard</Button>
-                </CardContent>
-            </Card>
-        )}
-      </div>
-    );
   }
 
   return (

@@ -1,10 +1,11 @@
-
 "use client";
 
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet-routing-machine";
 import { useEffect } from "react";
+import collegeData from "@/lib/college.json"
+import { GeoJSON } from "react-leaflet";
 
 // Fix for default icon issues with webpack
 import "leaflet/dist/leaflet.css";
@@ -21,7 +22,7 @@ L.Icon.Default.mergeOptions({
 });
 
 
-const defaultPosition: L.LatLngTuple = [40.7128, -74.0060]; // Default to NYC
+const defaultPosition: L.LatLngTuple = [17.783, 83.378]; 
 
 interface EventMapProps {
   interactive?: boolean;
@@ -88,11 +89,8 @@ export default function EventMap({
   const center = eventLocation || selectedLocation || L.latLng(defaultPosition[0], defaultPosition[1]);
 
   return (
-    <MapContainer center={center} zoom={13} scrollWheelZoom={true} className="rounded-lg h-full w-full z-0">
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+    <MapContainer center={center} zoom={16} scrollWheelZoom={true} className="rounded-lg h-full w-full z-0" maxBounds={[[17.7789300, 83.3724800], [17.7872100, 83.3817700]]}>
+      <GeoJSON data={collegeData as any} />
       {interactive && <LocationMarker onLocationSelect={onLocationSelect} selectedLocation={selectedLocation} />}
       {eventLocation && <Marker position={eventLocation}><Popup>Event Location</Popup></Marker>}
       {userLocation && <Marker position={userLocation}><Popup>Your Location</Popup></Marker>}

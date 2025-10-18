@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building, LogOut, PlusCircle } from "lucide-react";
+import { Building, LogOut, PlusCircle, User as UserIcon } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { useAuth, useUser } from "@/firebase";
 import { Button } from "@/components/ui/button";
@@ -14,33 +14,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
-import { useFirestore } from "@/firebase";
-import { CampusConnectUser } from "@/types";
 
 export default function Header() {
-  const { user: authUser } = useUser();
-  const [ user, setUser ] = useState<CampusConnectUser | null>(null);
+  const { user } = useUser();
   const auth = useAuth();
-  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
-
-   useEffect(() => {
-    const fetchUser = async () => {
-        if(authUser) {
-            const userDocRef = doc(firestore, "users", authUser.uid);
-            const userDoc = await getDoc(userDocRef);
-            if (userDoc.exists()) {
-              setUser({ uid: authUser.uid, ...userDoc.data() } as CampusConnectUser);
-            }
-        }
-    }
-    fetchUser();
-  }, [authUser, firestore]);
 
   const handleLogout = async () => {
     try {
@@ -59,11 +40,6 @@ export default function Header() {
     }
   };
 
-  const getInitials = (name?: string) => {
-    if (!name) return "CC";
-    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-  };
-
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
@@ -73,29 +49,30 @@ export default function Header() {
         </Link>
         <div className="flex flex-1 items-center justify-end space-x-4">
           <nav className="flex items-center space-x-2">
-            {user?.role === 'president' && (
-                <Button asChild>
-                    <Link href="/events/create">
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Create Event
-                    </Link>
-                </Button>
-            )}
+            <Button asChild>
+              <Link href="/events/create">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Create Event
+              </Link>
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src={authUser?.photoURL || ''} alt={user?.displayName || 'User'} />
-                    <AvatarFallback>{getInitials(user?.displayName)}</AvatarFallback>
+                    <AvatarFallback>
+                      <UserIcon />
+                    </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user?.displayName}</p>
+                    <p className="text-sm font-medium leading-none">
+                      {user?.isAnonymous ? "Anonymous User" : user?.displayName}
+                    </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {user?.email}
+                      {user?.uid}
                     </p>
                   </div>
                 </DropdownMenuLabel>

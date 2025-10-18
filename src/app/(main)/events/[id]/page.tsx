@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
-import { doc, getDoc } from "firebase/firestore";
+import { doc } from "firebase/firestore";
 import L from "leaflet";
 import { useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import { Loader } from "@/components/ui/loader";
@@ -89,7 +89,7 @@ export default function EventDetailsPage({ params }: { params: { id: string } })
                     <div className="flex items-start"><Calendar className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Date</p><p className="text-muted-foreground">{format(event.dateTime.toDate(), 'EEEE, MMMM do, yyyy')}</p></div></div>
                     <div className="flex items-start"><Clock className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Time</p><p className="text-muted-foreground">{format(event.dateTime.toDate(), 'p')}</p></div></div>
                     <div className="flex items-start"><MapPin className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Location</p><p className="text-muted-foreground">{event.locationName}</p></div></div>
-                    <div className="flex items-start"><User className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Organizer</p><p className="text-muted-foreground">{creator?.displayName || 'Unknown Creator'}</p></div></div>
+                    <div className="flex items-start"><User className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Organizer</p><p className="text-muted-foreground">{creator?.displayName || 'Anonymous'}</p></div></div>
                 </CardContent>
             </Card>
 
