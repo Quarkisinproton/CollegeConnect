@@ -4,7 +4,7 @@
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet-routing-machine";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 // Fix for default icon issues with webpack
@@ -26,6 +26,32 @@ interface EventMapProps {
   eventLocation?: L.LatLng | null;
   userLocation?: L.LatLng | null;
   showRoute?: boolean;
+}
+
+
+export default function EventMap({
+  interactive = false,
+  onLocationSelect,
+  selectedLocation,
+  eventLocation,
+  userLocation,
+  showRoute = false,
+}: EventMapProps) {
+
+  const center = eventLocation || selectedLocation || L.latLng(defaultPosition[0], defaultPosition[1]);
+
+  return (
+    <MapContainer center={center} zoom={16} scrollWheelZoom={true} className="rounded-lg h-full w-full z-0" maxBounds={[[17.7789300, 83.3724800], [17.7872100, 83.3817700]]}>
+      <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      />
+      {interactive && <LocationMarker onLocationSelect={onLocationSelect} selectedLocation={selectedLocation} />}
+      {eventLocation && <Marker position={eventLocation}><Popup>Event Location</Popup></Marker>}
+      {userLocation && <Marker position={userLocation}><Popup>Your Location</Popup></Marker>}
+      {showRoute && userLocation && eventLocation && <Routing userLocation={userLocation} eventLocation={eventLocation} />}
+    </MapContainer>
+  );
 }
 
 const LocationMarker = ({ onLocationSelect, selectedLocation }: Pick<EventMapProps, 'onLocationSelect' | 'selectedLocation'>) => {
@@ -70,28 +96,3 @@ const Routing = ({ userLocation, eventLocation }: Pick<EventMapProps, 'userLocat
 
     return null;
 };
-
-export default function EventMap({
-  interactive = false,
-  onLocationSelect,
-  selectedLocation,
-  eventLocation,
-  userLocation,
-  showRoute = false,
-}: EventMapProps) {
-
-  const center = eventLocation || selectedLocation || L.latLng(defaultPosition[0], defaultPosition[1]);
-
-  return (
-    <MapContainer center={center} zoom={16} scrollWheelZoom={true} className="rounded-lg h-full w-full z-0" maxBounds={[[17.7789300, 83.3724800], [17.7872100, 83.3817700]]}>
-      <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      />
-      {interactive && <LocationMarker onLocationSelect={onLocationSelect} selectedLocation={selectedLocation} />}
-      {eventLocation && <Marker position={eventLocation}><Popup>Event Location</Popup></Marker>}
-      {userLocation && <Marker position={userLocation}><Popup>Your Location</Popup></Marker>}
-      {showRoute && userLocation && eventLocation && <Routing userLocation={userLocation} eventLocation={eventLocation} />}
-    </MapContainer>
-  );
-}
