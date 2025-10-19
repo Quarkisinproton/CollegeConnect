@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
+import { useParams } from 'next/navigation';
 import { doc } from "firebase/firestore";
 import L from "leaflet";
 import { useFirestore, useDoc, useMemoFirebase } from "@/firebase";
@@ -19,11 +20,13 @@ const EventMap = dynamic(() => import('@/components/EventMap'), {
 });
 
 
-export default function EventDetailsPage({ params }: { params: { id: string } }) {
+export default function EventDetailsPage() {
+  const params = useParams();
+  const id = params.id as string;
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const eventDocRef = useMemoFirebase(() => params.id ? doc(firestore, "events", params.id) : null, [firestore, params.id]);
+  const eventDocRef = useMemoFirebase(() => id ? doc(firestore, "events", id) : null, [firestore, id]);
   const { data: event, isLoading: eventLoading } = useDoc<CampusEvent>(eventDocRef);
   
   const creatorDocRef = useMemoFirebase(() => event?.createdBy ? doc(firestore, "users", event.createdBy) : null, [firestore, event]);
