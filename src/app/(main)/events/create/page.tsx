@@ -72,6 +72,7 @@ export default function CreateEventPage() {
         },
         locationName: values.locationName,
         createdBy: authUser.uid,
+        creatorName: authUser.displayName || "Anonymous User",
         createdAt: Timestamp.now(),
       });
 

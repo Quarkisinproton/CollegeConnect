@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Clock, MapPin, Navigation, User } from "lucide-react";
 import { format } from "date-fns";
-import type { CampusEvent, CampusConnectUser } from "@/types";
+import type { CampusEvent } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
 const EventMap = dynamic(() => import('@/components/EventMap'), {
@@ -28,9 +28,6 @@ export default function EventDetailsPage() {
 
   const eventDocRef = useMemoFirebase(() => id ? doc(firestore, "events", id) : null, [firestore, id]);
   const { data: event, isLoading: eventLoading } = useDoc<CampusEvent>(eventDocRef);
-  
-  const creatorDocRef = useMemoFirebase(() => event?.createdBy ? doc(firestore, "users", event.createdBy) : null, [firestore, event]);
-  const { data: creator, isLoading: creatorLoading } = useDoc<CampusConnectUser>(creatorDocRef);
 
   const [userLocation, setUserLocation] = useState<L.LatLng | null>(null);
   const [showRoute, setShowRoute] = useState(false);
@@ -65,9 +62,7 @@ export default function EventDetailsPage() {
     );
   };
 
-  const loading = eventLoading || creatorLoading;
-
-  if (loading) {
+  if (eventLoading) {
     return <div className="flex h-[calc(100vh-4rem)] items-center justify-center"><Loader className="h-12 w-12" /></div>;
   }
 
@@ -92,7 +87,7 @@ export default function EventDetailsPage() {
                     <div className="flex items-start"><Calendar className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Date</p><p className="text-muted-foreground">{format(event.dateTime.toDate(), 'EEEE, MMMM do, yyyy')}</p></div></div>
                     <div className="flex items-start"><Clock className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Time</p><p className="text-muted-foreground">{format(event.dateTime.toDate(), 'p')}</p></div></div>
                     <div className="flex items-start"><MapPin className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Location</p><p className="text-muted-foreground">{event.locationName}</p></div></div>
-                    <div className="flex items-start"><User className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Organizer</p><p className="text-muted-foreground">{creator?.displayName || 'Anonymous'}</p></div></div>
+                    <div className="flex items-start"><User className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Organizer</p><p className="text-muted-foreground">{event.creatorName || 'Anonymous'}</p></div></div>
                 </CardContent>
             </Card>
 

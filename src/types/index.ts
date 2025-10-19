@@ -18,5 +18,6 @@ export interface CampusEvent {
   };
   locationName: string;
   createdBy: string;
+  creatorName: string;
   createdAt: Timestamp;
 }
