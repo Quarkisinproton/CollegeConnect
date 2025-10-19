@@ -1,11 +1,9 @@
 
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
+import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet-routing-machine";
-import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
 
 // Fix for default icon issues with webpack
 import "leaflet/dist/leaflet.css";
@@ -28,7 +26,6 @@ interface EventMapProps {
   showRoute?: boolean;
 }
 
-
 export default function EventMap({
   interactive = false,
   onLocationSelect,
@@ -37,62 +34,96 @@ export default function EventMap({
   userLocation,
   showRoute = false,
 }: EventMapProps) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const routingControlRef = useRef<L.Routing.Control | null>(null);
+  const markersRef = useRef<L.Marker[]>([]);
 
-  const center = eventLocation || selectedLocation || L.latLng(defaultPosition[0], defaultPosition[1]);
+  useEffect(() => {
+    if (mapRef.current && !mapInstanceRef.current) {
+      const center = eventLocation || selectedLocation || L.latLng(defaultPosition[0], defaultPosition[1]);
+      
+      const map = L.map(mapRef.current, {
+        center: center,
+        zoom: 16,
+        scrollWheelZoom: true,
+      });
+      mapInstanceRef.current = map;
 
-  return (
-    <MapContainer center={center} zoom={16} scrollWheelZoom={true} className="rounded-lg h-full w-full z-0" maxBounds={[[17.7789300, 83.3724800], [17.7872100, 83.3817700]]}>
-      <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      />
-      {interactive && <LocationMarker onLocationSelect={onLocationSelect} selectedLocation={selectedLocation} />}
-      {eventLocation && <Marker position={eventLocation}><Popup>Event Location</Popup></Marker>}
-      {userLocation && <Marker position={userLocation}><Popup>Your Location</Popup></Marker>}
-      {showRoute && userLocation && eventLocation && <Routing userLocation={userLocation} eventLocation={eventLocation} />}
-    </MapContainer>
-  );
-}
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
 
-const LocationMarker = ({ onLocationSelect, selectedLocation }: Pick<EventMapProps, 'onLocationSelect' | 'selectedLocation'>) => {
-  useMapEvents({
-    click(e) {
-      onLocationSelect?.(e.latlng);
-    },
-  });
+       // Set map bounds
+      map.setMaxBounds([[17.7789300, 83.3724800], [17.7872100, 83.3817700]]);
 
-  return selectedLocation === null || selectedLocation === undefined ? null : (
-    <Marker position={selectedLocation}>
-      <Popup>You selected this location</Popup>
-    </Marker>
-  );
-};
+      if (interactive) {
+        map.on('click', (e) => {
+          onLocationSelect?.(e.latlng);
+        });
+      }
+    }
 
-const Routing = ({ userLocation, eventLocation }: Pick<EventMapProps, 'userLocation' | 'eventLocation'>) => {
-    const map = useMap();
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []); // Only run once on mount and unmount
 
-    useEffect(() => {
-        if (!userLocation || !eventLocation) return;
-        
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    // Clear previous markers
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+
+    if (selectedLocation) {
+        const marker = L.marker(selectedLocation).addTo(map).bindPopup("You selected this location");
+        markersRef.current.push(marker);
+    }
+    if (eventLocation) {
+        const marker = L.marker(eventLocation).addTo(map).bindPopup("Event Location");
+        markersRef.current.push(marker);
+    }
+    if (userLocation) {
+        const marker = L.marker(userLocation).addTo(map).bindPopup("Your Location");
+        markersRef.current.push(marker);
+    }
+
+  }, [selectedLocation, eventLocation, userLocation]);
+
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    
+    // Remove existing routing control if it exists
+    if (routingControlRef.current) {
+        map.removeControl(routingControlRef.current);
+        routingControlRef.current = null;
+    }
+
+    if (showRoute && userLocation && eventLocation) {
         const routingControl = L.Routing.control({
             waypoints: [
                 L.latLng(userLocation.lat, userLocation.lng),
                 L.latLng(eventLocation.lat, eventLocation.lng)
             ],
             routeWhileDragging: true,
-            show: false, // Hides the itinerary
+            show: false,
             addWaypoints: false,
             fitSelectedRoutes: true,
             lineOptions: {
               styles: [{ color: '#4169E1', opacity: 0.8, weight: 6 }]
             },
-            createMarker: function() { return null; } // Hide default markers
+            createMarker: function() { return null; }
         }).addTo(map);
+        routingControlRef.current = routingControl;
+    }
+  }, [showRoute, userLocation, eventLocation]);
 
-        return () => {
-          map.removeControl(routingControl);
-        };
-    }, [map, userLocation, eventLocation]);
-
-    return null;
-};
+  return <div ref={mapRef} className="rounded-lg h-full w-full z-0" />;
+}
