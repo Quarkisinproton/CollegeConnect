@@ -28,6 +28,15 @@ public class FirebaseAuthFilterTest {
     @MockBean
     private com.collegeconnect.security.CurrentUser currentUser;
 
+    @org.springframework.boot.test.context.TestConfiguration
+    static class TestConfig {
+        @org.springframework.context.annotation.Bean
+        @org.springframework.web.context.annotation.RequestScope
+        public com.collegeconnect.security.CurrentUser currentUser() {
+            return new com.collegeconnect.security.CurrentUser();
+        }
+    }
+
     @Test
     public void requestsWithoutAuth_shouldReturn401() throws Exception {
         when(tokenVerifier.verify(null)).thenReturn(null);

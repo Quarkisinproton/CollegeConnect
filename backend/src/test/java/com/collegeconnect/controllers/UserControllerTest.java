@@ -35,6 +35,15 @@ public class UserControllerTest {
     @MockBean
     private com.collegeconnect.security.CurrentUser currentUser;
 
+    @org.springframework.boot.test.context.TestConfiguration
+    static class TestConfig {
+        @org.springframework.context.annotation.Bean
+        @org.springframework.web.context.annotation.RequestScope
+        public com.collegeconnect.security.CurrentUser currentUser() {
+            return new com.collegeconnect.security.CurrentUser();
+        }
+    }
+
     @Test
     public void upsertUser_validPayload_returns200() throws Exception {
     // Mock token verification to allow the request through

@@ -2,6 +2,7 @@ package com.collegeconnect.config;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.FirestoreOptions;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.cloud.FirestoreClient;
@@ -16,6 +17,21 @@ public class FirestoreConfig {
 
     @Bean
     public Firestore firestore() throws Exception {
+        // If an emulator is configured, create a Firestore client that talks to it without credentials.
+        String emulatorHost = System.getenv("FIRESTORE_EMULATOR_HOST");
+        if (emulatorHost != null && !emulatorHost.isBlank()) {
+            // When the emulator is configured via FIRESTORE_EMULATOR_HOST, the
+            // Firestore client libraries detect and use it. Avoid forcing a host
+            // value (which can cause gRPC name resolver issues). Just set the
+            // project id and return the default instance so the emulator env var
+            // is respected.
+            String projectId = System.getenv().getOrDefault("FIRESTORE_PROJECT", "demo-project");
+            FirestoreOptions options = FirestoreOptions.getDefaultInstance().toBuilder()
+                .setProjectId(projectId)
+                .build();
+            return options.getService();
+        }
+
         // Prefer GOOGLE_APPLICATION_CREDENTIALS env var in production.
         String serviceAccountPath = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
 

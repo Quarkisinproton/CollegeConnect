@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  firestore-emulator:
+    # use the emulators image which bundles emulator binaries
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:emulators
+    command: gcloud beta emulators firestore start --host-port=0.0.0.0:8080 --project=demo-project
+    ports:
+      - "8080:8080"
+    environment:
+      - CLOUDSDK_CORE_PROJECT=demo-project
+    healthcheck:
+      # root path is fine for the emulator's readiness probe
+      test: ["CMD-SHELL", "curl -sSf http://localhost:8080/ || exit 1"]
+    restart: unless-stopped
