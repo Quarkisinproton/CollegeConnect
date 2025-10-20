@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -54,26 +55,53 @@ export default function EventDetailsPage() {
   }, [event, eventLoading, toast])
 
 
-  const handleNavigate = () => {
+  const handleNavigate = async () => {
     setIsNavigating(true);
+
     if (!navigator.geolocation) {
       toast({ variant: "destructive", title: "Geolocation not supported", description: "Your browser does not support geolocation." });
       setIsNavigating(false);
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setUserLocation(L.latLng(position.coords.latitude, position.coords.longitude));
-        setShowRoute(true);
-        toast({ title: "Route Calculated", description: "Showing route from your location." });
-        setIsNavigating(false);
-      },
-      (error) => {
-        toast({ variant: "destructive", title: "Geolocation error", description: `Could not get your location: ${error.message}` });
-        setIsNavigating(false);
+    try {
+      const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+
+      if (permissionStatus.state === 'granted' || permissionStatus.state === 'prompt') {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setUserLocation(L.latLng(position.coords.latitude, position.coords.longitude));
+            setShowRoute(true);
+            toast({ title: "Route Calculated", description: "Showing route from your location." });
+            setIsNavigating(false);
+          },
+          (error) => {
+            // This will catch denials from the prompt or other errors.
+            toast({ variant: "destructive", title: "Geolocation error", description: `Could not get your location: ${error.message}` });
+            setIsNavigating(false);
+          }
+        );
+      } else if (permissionStatus.state === 'denied') {
+         toast({ 
+             variant: "destructive", 
+             title: "Geolocation Denied", 
+             description: "You have blocked location access. Please enable it in your browser settings to use this feature." 
+         });
+         setIsNavigating(false);
       }
-    );
+    } catch (error: any) {
+        // This can happen if the permissions policy is not set correctly by the browser/iframe
+        if (error.name === 'TypeError') {
+             toast({ 
+                variant: "destructive", 
+                title: "Geolocation Error", 
+                description: "Geolocation has been disabled in this document by a permissions policy." 
+            });
+        } else {
+            toast({ variant: "destructive", title: "Permission Error", description: "An error occurred while checking permissions." });
+        }
+        setIsNavigating(false);
+    }
   };
 
   if (eventLoading && !initialLoadComplete.current) {
