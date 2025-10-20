@@ -49,12 +49,14 @@ export default function Header() {
         </Link>
         <div className="flex flex-1 items-center justify-end space-x-4">
           <nav className="flex items-center space-x-2">
-            <Button asChild>
-              <Link href="/events/create">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Create Event
-              </Link>
-            </Button>
+            {user?.role === 'president' && (
+              <Button asChild>
+                <Link href="/events/create">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Create Event
+                </Link>
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -69,10 +71,13 @@ export default function Header() {
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">
-                      {user?.isAnonymous ? "Anonymous User" : user?.displayName}
+                      {user?.displayName || "Anonymous User"}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
                       {user?.uid}
+                    </p>
+                     <p className="text-xs leading-none text-muted-foreground capitalize pt-1">
+                      Role: {user?.role}
                     </p>
                   </div>
                 </DropdownMenuLabel>

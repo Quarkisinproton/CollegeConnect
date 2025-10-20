@@ -3,8 +3,9 @@ import type { Timestamp } from "firebase/firestore";
 export interface CampusConnectUser {
   uid: string;
   email: string | null;
-  displayName?: string | null;
+  displayName: string | null;
   role: 'student' | 'president';
+  createdAt: Timestamp;
 }
 
 export interface CampusEvent {

@@ -17,7 +17,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     }
   }, [user, isUserLoading, router, pathname]);
 
-  if (isUserLoading || !user) {
+  if (isUserLoading || !user?.uid) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader className="h-12 w-12" />
