@@ -1,37 +1,32 @@
 /**
- * @fileoverview Firestore Security Rules for the campus events app.
- *
- * Core Philosophy:
- * This ruleset prioritizes user-owned data with public read access for events.
- * Users can only manage their own profile data. Events are publicly visible but
- * only created, updated, or deleted by their creator.
- *
- * Data Structure:
- * - /events/{eventId}: Stores event data.
- * - /users/{userId}: Stores user profile information.
- *
- * Key Security Decisions:
- * - Events are publicly readable to allow for open discovery.
- * - Users can only manage (create, update, delete) their own user profile.
- * - Events can only be created by authenticated users, and only updated/deleted by the user who created them.
- *
- * Denormalization for Authorization:
- * - Event documents denormalize the creator's UID in the `createdBy` field.
- *   This allows event rules to quickly check ownership without additional reads.
+ * @file Firestore Security Rules
+ * @core_philosophy This ruleset prioritizes a balance between open access for public content (events) and strict ownership for user-specific data.
+ * @data_structure
+ *   - /events/{eventId}: Stores publicly accessible event data.
+ *   - /users/{userId}: Stores private user profile data.
+ * @key_security_decisions
+ *   - Events are publicly readable (get, list) to facilitate discovery.
+ *   - Event creation is restricted to authenticated users (isSignedIn()).
+ *   - Event updates and deletes are restricted to the event creator (isOwner()).
+ *   - Users can only manage their own profile data in /users/{userId} (isOwner()).
+ * @denormalization_for_authorization
+ *   - The Event entity contains a `createdBy` field, which stores the UID of the user who created the event. This is used to enforce owner-only write access.
+ * @structural_segregation
+ *   - Public event data is stored in the top-level `/events` collection, while private user data is stored under `/users/{userId}`.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows public reading of events, but restricts creation, updates, and deletes to the event creator.
+     * @description Allows public read access to all events, but restricts creation, update, and deletion to the event creator.
      * @path /events/{eventId}
-     * @allow (list, get): Any user can view events.
-     * @allow (create): Authenticated user can create an event with `createdBy` matching their UID.
-     * @allow (update, delete): Only the user who created the event (createdBy) can modify or delete it.
-     * @deny (create): Unauthenticated users cannot create events.
-     * @deny (update, delete): A user cannot modify or delete an event they didn't create.
-     * @principle Allows public reads, enforces creator-only writes for events.
+     * @allow (get, list) - Any user can read event data.
+     * @allow (create) - Authenticated user can create an event. The `createdBy` field must match the user's UID.
+     * @allow (update, delete) - Only the user who created the event (createdBy) can update or delete it.
+     * @deny (create) - An unauthenticated user cannot create an event.
+     * @deny (update, delete) - A user cannot update or delete an event they did not create.
+     * @principle Public read with owner-only writes. Enforces document ownership for writes.
      */
     match /events/{eventId} {
       allow get, list: if true;
@@ -40,19 +35,17 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows a user to manage their own profile data.
+     * @description Allows a user to manage their own profile data only.
      * @path /users/{userId}
-     * @allow (get, update, delete): User can access their own profile data (userId matches auth.uid).
-     * @allow (create): User can create their own profile if userId matches auth.uid.
-     * @deny (get, create, update, delete): User cannot access or modify another user's profile.
-     * @principle Enforces user-ownership for profile data.
+     * @allow (get, update, delete) - Only the user with the matching UID can read, update, or delete their profile.
+     * @allow (create) - Allows user to create their own profile document with matching UID.
+     * @deny (get, update, delete) - A user cannot access or modify another user's profile.
+     * @deny (create) - A user cannot create a profile document with a UID that does not match their own.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow get, update, delete: if isExistingOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.uid == request.auth.uid;
     }
 
     // Helper functions
@@ -65,7 +58,7 @@ service cloud.firestore {
     }
 
     function isExistingOwner(userId) {
-      return isSignedIn() && isOwner(userId) && resource != null;
+        return isOwner(userId) && resource != null;
     }
   }
 }
