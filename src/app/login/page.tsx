@@ -41,16 +41,36 @@ export default function LoginPage() {
             const userCredential = await initiateAnonymousSignIn(auth);
             const user = userCredential.user;
 
-            const userDocRef = doc(firestore, "users", user.uid);
             const userData = {
                 uid: user.uid,
                 email: user.email,
                 displayName: userProfile.displayName,
                 role: userProfile.role,
-                createdAt: serverTimestamp(),
+                createdAt: new Date().toISOString(),
             };
 
-            await setDoc(userDocRef, userData, { merge: true });
+            const BACKEND_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '/api';
+            const url = `${BACKEND_BASE}/users/${user.uid}`;
+
+            // try to get id token if available
+            let idToken = null;
+            try {
+                // @ts-ignore
+                if (user?.getIdToken) idToken = await user.getIdToken();
+            } catch (e) {}
+
+            const res = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+                },
+                body: JSON.stringify(userData),
+            });
+
+            if (!res.ok) {
+                throw new Error('Failed to write user profile');
+            }
 
             toast({
                 title: "Login Successful",

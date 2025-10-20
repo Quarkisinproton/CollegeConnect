@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
-import { collection, Timestamp, addDoc } from "firebase/firestore";
+declare const process: any;
 import L from "leaflet";
 
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from "@/firebase";
@@ -66,7 +66,8 @@ export default function CreateEventPage() {
     const eventData = {
       name: values.name,
       description: values.description,
-      dateTime: Timestamp.fromDate(eventDateTime),
+      // send ISO date string to backend; backend should parse into Firestore Timestamp
+      dateTime: eventDateTime.toISOString(),
       location: {
         lat: selectedLocation.lat,
         lng: selectedLocation.lng,
@@ -74,25 +75,49 @@ export default function CreateEventPage() {
       locationName: values.locationName,
       createdBy: authUser.uid,
       creatorName: authUser.displayName || "Anonymous User",
-      createdAt: Timestamp.now(),
+      createdAt: new Date().toISOString(),
     };
 
-    const eventsColRef = collection(firestore, "events");
+    const BACKEND_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '/api';
+    const url = `${BACKEND_BASE}/events`;
 
-    addDoc(eventsColRef, eventData)
+    // Try to get an ID token from the user helper if available
+    let idToken: string | null = null;
+    try {
+      // `useUser` may expose a method to get the token; fallback to null.
+      // If your useUser hook doesn't provide getIdToken, adjust accordingly.
+      // @ts-ignore
+      if (authUser?.getIdToken) idToken = await authUser.getIdToken();
+    } catch (e) {
+      // ignore token retrieval failures; backend will reject unauthorized requests
+    }
+
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+      },
+      body: JSON.stringify(eventData),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const permissionError = new FirestorePermissionError({
+            path: 'events',
+            operation: 'create',
+            requestResourceData: eventData,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          throw new Error('Server error');
+        }
+        return res.json();
+      })
       .then(() => {
         toast({ title: "Success", description: "Event created successfully." });
         router.push("/dashboard");
       })
-      .catch((error) => {
-        const permissionError = new FirestorePermissionError({
-          path: eventsColRef.path,
-          operation: 'create',
-          requestResourceData: eventData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        // We don't show a toast here because the FirebaseErrorListener will throw
-        // an error that Next.js will display in an overlay, which is more informative.
+      .catch(() => {
+        // already emitted permission-error above
       })
       .finally(() => {
         setIsLoading(false);
