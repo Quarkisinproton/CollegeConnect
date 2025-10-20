@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { collection, query, orderBy, where } from "firebase/firestore";
+import { collection, query, orderBy, where, Timestamp } from "firebase/firestore";
 import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,11 @@ import { Calendar, Clock, MapPin, Edit, Trash2 } from "lucide-react";
 import type { CampusEvent } from "@/types";
 import { format } from 'date-fns';
 
-function EventCard({ event }: { event: CampusEvent }) {
+type DisplayEvent = Omit<CampusEvent, 'dateTime'> & {
+    dateTime: Date;
+};
+
+function EventCard({ event }: { event: DisplayEvent }) {
     return (
         <Card key={event.id} className="flex flex-col">
             <CardHeader>
@@ -20,11 +24,11 @@ function EventCard({ event }: { event: CampusEvent }) {
             <CardContent className="flex-grow space-y-2 text-sm text-muted-foreground">
                 <div className="flex items-center">
                     <Calendar className="mr-2 h-4 w-4" />
-                    <span>{format(event.dateTime.toDate(), 'PPP')}</span>
+                    <span>{format(event.dateTime, 'PPP')}</span>
                 </div>
                 <div className="flex items-center">
                     <Clock className="mr-2 h-4 w-4" />
-                    <span>{format(event.dateTime.toDate(), 'p')}</span>
+                    <span>{format(event.dateTime, 'p')}</span>
                 </div>
                 <div className="flex items-center">
                     <MapPin className="mr-2 h-4 w-4" />
@@ -54,6 +58,8 @@ function MyEvents() {
     , [firestore, user]);
 
     const { data: myEvents, isLoading: loadingMyEvents } = useCollection<CampusEvent>(myEventsQuery);
+    
+    const displayMyEvents: DisplayEvent[] | null = myEvents ? myEvents.map(e => ({...e, dateTime: (e.dateTime as unknown as Timestamp).toDate()})) : null;
 
     if (!user || user.role !== 'president') {
         return null;
@@ -66,9 +72,9 @@ function MyEvents() {
                  <div className="flex justify-center items-center h-40">
                     <Loader className="h-10 w-10" />
                 </div>
-            ) : myEvents && myEvents.length > 0 ? (
+            ) : displayMyEvents && displayMyEvents.length > 0 ? (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {myEvents.map((event) => (
+                    {displayMyEvents.map((event) => (
                         <EventCard event={event} key={event.id}/>
                     ))}
                 </div>
@@ -95,7 +101,11 @@ export default function DashboardPage() {
   
   const { data: events, isLoading: loading } = useCollection<CampusEvent>(eventsQuery);
 
-  const upcomingEvents = events?.filter(event => event.dateTime.toDate() > new Date()) || [];
+  const upcomingEvents: DisplayEvent[] = events
+      ? events
+          .map(event => ({...event, dateTime: (event.dateTime as unknown as Timestamp).toDate()}))
+          .filter(event => event.dateTime > new Date())
+      : [];
 
   return (
     <div className="container py-8">

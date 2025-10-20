@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
-import { doc } from "firebase/firestore";
+import { doc, Timestamp } from "firebase/firestore";
 import L from "leaflet";
 import { useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import { Loader } from "@/components/ui/loader";
@@ -69,25 +69,27 @@ export default function EventDetailsPage() {
   if (!event) {
     return <div className="flex h-[calc(100vh-4rem)] items-center justify-center"><p>Event not found.</p></div>;
   }
+  
+  const displayEvent = {...event, dateTime: (event.dateTime as unknown as Timestamp).toDate()};
 
-  const eventLocation = L.latLng(event.location.lat, event.location.lng);
+  const eventLocation = L.latLng(displayEvent.location.lat, displayEvent.location.lng);
 
   return (
     <div className="container py-8">
       <div className="grid lg:grid-cols-5 gap-8">
         <div className="lg:col-span-2 space-y-6">
-            <h1 className="text-4xl font-extrabold tracking-tight">{event.name}</h1>
-            <p className="text-lg text-muted-foreground">{event.description}</p>
+            <h1 className="text-4xl font-extrabold tracking-tight">{displayEvent.name}</h1>
+            <p className="text-lg text-muted-foreground">{displayEvent.description}</p>
             
             <Card>
                 <CardHeader>
                     <CardTitle>Event Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm">
-                    <div className="flex items-start"><Calendar className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Date</p><p className="text-muted-foreground">{format(event.dateTime.toDate(), 'EEEE, MMMM do, yyyy')}</p></div></div>
-                    <div className="flex items-start"><Clock className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Time</p><p className="text-muted-foreground">{format(event.dateTime.toDate(), 'p')}</p></div></div>
-                    <div className="flex items-start"><MapPin className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Location</p><p className="text-muted-foreground">{event.locationName}</p></div></div>
-                    <div className="flex items-start"><User className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Organizer</p><p className="text-muted-foreground">{event.creatorName || 'Anonymous'}</p></div></div>
+                    <div className="flex items-start"><Calendar className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Date</p><p className="text-muted-foreground">{format(displayEvent.dateTime, 'EEEE, MMMM do, yyyy')}</p></div></div>
+                    <div className="flex items-start"><Clock className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Time</p><p className="text-muted-foreground">{format(displayEvent.dateTime, 'p')}</p></div></div>
+                    <div className="flex items-start"><MapPin className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Location</p><p className="text-muted-foreground">{displayEvent.locationName}</p></div></div>
+                    <div className="flex items-start"><User className="mr-3 mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-semibold">Organizer</p><p className="text-muted-foreground">{displayEvent.creatorName || 'Anonymous'}</p></div></div>
                 </CardContent>
             </Card>
 
