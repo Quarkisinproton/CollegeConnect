@@ -67,8 +67,8 @@ export default function EventDetailsPage() {
 
 
   const requestGeolocation = () => {
+    setPermissionDialogOpen(false); // Close the dialog first
     setIsNavigating(true);
-    setPermissionDialogOpen(false); // Close the dialog
 
     if (!navigator.geolocation) {
       toast({ variant: "destructive", title: "Geolocation not supported", description: "Your browser does not support geolocation." });
@@ -76,6 +76,7 @@ export default function EventDetailsPage() {
       return;
     }
 
+    // This triggers the browser's permission prompt
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setUserLocation(L.latLng(position.coords.latitude, position.coords.longitude));
@@ -96,27 +97,22 @@ export default function EventDetailsPage() {
       toast({ variant: "destructive", title: "Geolocation not supported", description: "Your browser does not support geolocation features." });
       return;
     }
+    
+    const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
 
-    try {
-      const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
-
-      if (permissionStatus.state === 'granted') {
-        // If we already have permission, just get the location.
-        requestGeolocation();
-      } else if (permissionStatus.state === 'prompt') {
-        // If we need to ask, open our custom dialog first.
-        setPermissionDialogOpen(true);
-      } else if (permissionStatus.state === 'denied') {
-        // If permission is denied, tell the user how to fix it.
+    if (permissionStatus.state === 'denied') {
+        // If permission is already denied, tell the user how to fix it.
          toast({ 
              variant: "destructive", 
              title: "Geolocation Denied", 
              description: "You have blocked location access. Please enable it in your browser settings to use navigation." 
          });
-      }
-    } catch (error: any) {
-        toast({ variant: "destructive", title: "Permission Error", description: "An error occurred while checking permissions." });
+         return;
     }
+
+    // For 'granted' or 'prompt' states, we open our custom dialog first.
+    // This provides a consistent, user-friendly experience.
+    setPermissionDialogOpen(true);
   };
 
 
@@ -125,6 +121,8 @@ export default function EventDetailsPage() {
   }
 
   if (!event) {
+    // This message is shown after loading is complete and event is still null.
+    // The "Event not found" toast is handled by the useEffect hook.
     return <div className="flex h-[calc(100vh-4rem)] items-center justify-center"><p>Event not found.</p></div>;
   }
   
@@ -143,7 +141,7 @@ export default function EventDetailsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setIsNavigating(false)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={requestGeolocation}>Allow</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
