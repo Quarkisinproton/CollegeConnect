@@ -32,13 +32,25 @@ const EventMap = dynamic(() => import('@/components/EventMap'), {
 
 
 export default function EventDetailsPage() {
+  console.log("LOG: EventDetailsPage component rendered or re-rendered.");
   const params = useParams();
   const id = params.id as string;
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const eventDocRef = useMemoFirebase(() => id ? doc(firestore, "events", id) : null, [firestore, id]);
-  const { data: event, isLoading: eventLoading } = useDoc<CampusEvent>(eventDocRef);
+  console.log(`LOG: Event ID from params: ${id}`);
+
+  const eventDocRef = useMemoFirebase(() => {
+    console.log(`LOG: useMemoFirebase running for doc ref with id: ${id}`);
+    return id ? doc(firestore, "events", id) : null;
+  }, [firestore, id]);
+
+  const { data: event, isLoading: eventLoading, error: eventError } = useDoc<CampusEvent>(eventDocRef);
+
+  useEffect(() => {
+    console.log(`LOG: useDoc state change - isLoading: ${eventLoading}, event: ${event ? 'Exists' : 'null'}, error: ${eventError}`);
+  }, [event, eventLoading, eventError]);
+
 
   const [userLocation, setUserLocation] = useState<L.LatLng | null>(null);
   const [showRoute, setShowRoute] = useState(false);
@@ -47,45 +59,48 @@ export default function EventDetailsPage() {
   const initialLoadComplete = useRef(false);
 
   useEffect(() => {
-    // This effect should only run once the initial loading is complete.
-    // We use a ref to track if the initial load has happened.
+    console.log(`LOG: Toast useEffect running - eventLoading: ${eventLoading}, initialLoadComplete: ${initialLoadComplete.current}`);
+    
     if (eventLoading) {
+      console.log("LOG: Toast useEffect - Still loading, exiting effect.");
       return;
     }
     
-    // Once isLoading is false, we mark the initial load as complete.
     if (!initialLoadComplete.current) {
+        console.log("LOG: Toast useEffect - Initial load is now complete.");
         initialLoadComplete.current = true;
     }
 
-    // Now, if the initial load is complete and there's still no event,
-    // it means the event truly wasn't found.
     if (initialLoadComplete.current && !event) {
+        console.log("LOG: Toast useEffect - Firing 'Event not found' toast.");
         toast({ variant: "destructive", title: "Error", description: "Event not found." });
     }
   }, [event, eventLoading, toast])
 
 
   const requestGeolocation = () => {
-    setPermissionDialogOpen(false); // Close the dialog first
+    console.log("LOG: requestGeolocation called.");
+    setPermissionDialogOpen(false); 
     setIsNavigating(true);
 
     if (!navigator.geolocation) {
+      console.error("LOG: Geolocation not supported by browser.");
       toast({ variant: "destructive", title: "Geolocation not supported", description: "Your browser does not support geolocation." });
       setIsNavigating(false);
       return;
     }
 
-    // This triggers the browser's permission prompt
+    console.log("LOG: Calling navigator.geolocation.getCurrentPosition...");
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        console.log("LOG: Geolocation success.", position.coords);
         setUserLocation(L.latLng(position.coords.latitude, position.coords.longitude));
         setShowRoute(true);
         toast({ title: "Route Calculated", description: "Showing route from your location." });
         setIsNavigating(false);
       },
       (error) => {
-        // This will catch denials from the browser prompt or other errors.
+        console.error("LOG: Geolocation error.", error);
         toast({ variant: "destructive", title: "Geolocation error", description: "You denied location access. To use this feature, please enable location permissions in your browser settings." });
         setIsNavigating(false);
       }
@@ -93,15 +108,18 @@ export default function EventDetailsPage() {
   };
 
   const handleNavigateClick = async () => {
+    console.log("LOG: handleNavigateClick called.");
     if (!navigator.geolocation || !navigator.permissions) {
+      console.error("LOG: Geolocation or permissions API not supported.");
       toast({ variant: "destructive", title: "Geolocation not supported", description: "Your browser does not support geolocation features." });
       return;
     }
     
     const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+    console.log(`LOG: Geolocation permission status: ${permissionStatus.state}`);
 
     if (permissionStatus.state === 'denied') {
-        // If permission is already denied, tell the user how to fix it.
+        console.log("LOG: Permission is denied. Showing toast.");
          toast({ 
              variant: "destructive", 
              title: "Geolocation Denied", 
@@ -110,22 +128,22 @@ export default function EventDetailsPage() {
          return;
     }
 
-    // For 'granted' or 'prompt' states, we open our custom dialog first.
-    // This provides a consistent, user-friendly experience.
+    console.log("LOG: Opening permission dialog.");
     setPermissionDialogOpen(true);
   };
 
 
   if (eventLoading && !initialLoadComplete.current) {
+    console.log("LOG: Render - Showing main loader as initial load is not complete.");
     return <div className="flex h-[calc(100vh-4rem)] items-center justify-center"><Loader className="h-12 w-12" /></div>;
   }
 
   if (!event) {
-    // This message is shown after loading is complete and event is still null.
-    // The "Event not found" toast is handled by the useEffect hook.
+    console.log("LOG: Render - Event is falsy after initial load. Showing 'Event not found' message.");
     return <div className="flex h-[calc(100vh-4rem)] items-center justify-center"><p>Event not found.</p></div>;
   }
   
+  console.log("LOG: Render - Event data is available. Rendering page content.");
   const displayEvent = {...event, dateTime: (event.dateTime as unknown as Timestamp).toDate()};
 
   const eventLocation = L.latLng(displayEvent.location.lat, displayEvent.location.lng);
@@ -177,5 +195,4 @@ export default function EventDetailsPage() {
       </div>
     </>
   );
-
-    
+}
