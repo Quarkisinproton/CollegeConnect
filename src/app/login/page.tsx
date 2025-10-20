@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth, initiateAnonymousSignIn, setDocumentNonBlocking } from "@/firebase";
-import { doc, serverTimestamp } from "firebase/firestore";
+import { useAuth, initiateAnonymousSignIn } from "@/firebase";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
