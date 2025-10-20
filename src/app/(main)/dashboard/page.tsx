@@ -6,7 +6,7 @@ import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebas
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
-import { Calendar, Clock, MapPin, Edit, Trash2 } from "lucide-react";
+import { Calendar, Clock, MapPin } from "lucide-react";
 import type { CampusEvent } from "@/types";
 import { format } from 'date-fns';
 
@@ -44,7 +44,6 @@ function EventCard({ event }: { event: DisplayEvent }) {
     );
 }
 
-
 function MyEvents() {
     const firestore = useFirestore();
     const { user } = useUser();
@@ -61,12 +60,21 @@ function MyEvents() {
     
     const displayMyEvents: DisplayEvent[] | null = myEvents ? myEvents.map(e => ({...e, dateTime: (e.dateTime as unknown as Timestamp).toDate()})) : null;
 
-    if (!user || user.role !== 'president') {
+    if (!user) {
         return null;
     }
 
+    if (user.role !== 'president') {
+        return (
+             <div className="text-center py-16 border-2 border-dashed rounded-lg">
+                <h2 className="text-xl font-semibold">Welcome, Student!</h2>
+                <p className="text-muted-foreground mt-2">There are currently no events scheduled. Check back later!</p>
+            </div>
+        )
+    }
+
     return (
-        <div className="mt-12">
+        <div className="mt-8">
             <h2 className="text-2xl font-bold tracking-tight mb-6">My Created Events</h2>
             {loadingMyEvents ? (
                  <div className="flex justify-center items-center h-40">
@@ -93,42 +101,16 @@ function MyEvents() {
 
 
 export default function DashboardPage() {
-  const firestore = useFirestore();
-
-  const eventsQuery = useMemoFirebase(() => 
-    query(collection(firestore, "events"), orderBy("dateTime", "asc"))
-  , [firestore]);
-  
-  const { data: events, isLoading: loading } = useCollection<CampusEvent>(eventsQuery);
-
-  const upcomingEvents: DisplayEvent[] = events
-      ? events
-          .map(event => ({...event, dateTime: (event.dateTime as unknown as Timestamp).toDate()}))
-          .filter(event => event.dateTime > new Date())
-      : [];
+  const { user } = useUser();
 
   return (
     <div className="container py-8">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Upcoming Events</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          {user?.role === 'president' ? "Event Management" : "Campus Events"}
+        </h1>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader className="h-12 w-12" />
-        </div>
-      ) : upcomingEvents.length === 0 ? (
-        <div className="text-center py-16 border-2 border-dashed rounded-lg">
-            <h2 className="text-xl font-semibold">No Upcoming Events</h2>
-            <p className="text-muted-foreground mt-2">Check back later for new events on campus!</p>
-        </div>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {upcomingEvents.map((event) => (
-            <EventCard event={event} key={event.id}/>
-          ))}
-        </div>
-      )}
       <MyEvents />
     </div>
   );
