@@ -76,9 +76,12 @@ export default function LoginPage() {
                 title: "Login Successful",
                 description: `You are now logged in as ${userProfile.displayName}.`,
             });
-            
+
+            // clear loading state before navigation to avoid UI glitches
+            setIsLoading(null);
             const redirectPath = searchParams.get('redirect') || '/dashboard';
-            router.push(redirectPath);
+            // use replace so back button doesn't return to login
+            router.replace(redirectPath);
 
         } catch (error: any) {
             console.error("Authentication or Firestore operation failed:", error);

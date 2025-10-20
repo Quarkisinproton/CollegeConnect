@@ -31,7 +31,10 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
-    const backend = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+  // Default to the local Java backend which itself is configured to use the Firestore emulator.
+  // Using the backend (8081) instead of the emulator (8080) ensures /api/* routes are handled
+  // by the application server rather than directly hitting the emulator REST surface.
+  const backend = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8081';
     return process.env.NODE_ENV === 'development'
       ? [
           {

@@ -27,6 +27,11 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         // Allow public access to health endpoint and static assets
         if (path.equals("/health") || path.equals("/healthz") || path.equals("/")) return true;
+        // Allow unauthenticated upsert of user profiles from the client during simulated login.
+        // The frontend performs a PUT to /api/users/{uid} immediately after anonymous sign-in
+        // and may not yet have a valid ID token. Skip the filter for that specific case.
+        if (path.startsWith("/api/users") && "PUT".equalsIgnoreCase(request.getMethod())) return true;
+
         return !path.startsWith("/api/");
     }
 

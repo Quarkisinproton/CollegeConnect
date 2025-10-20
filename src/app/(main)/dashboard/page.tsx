@@ -13,6 +13,7 @@ function EventList() {
   const firestore = useFirestore();
   const eventsQuery = useMemoFirebase(() => query(collection(firestore, "events"), orderBy("dateTime", "asc")), [firestore]);
   const { data: events, isLoading, error } = useCollection<CampusEvent>(eventsQuery);
+  const { user } = useUser();
 
   if (isLoading) {
     return (
@@ -56,31 +57,96 @@ function EventList() {
      )
   }
 
+  // Normalize dateTime to JS Date and then, for presidents, split into "My Events" and "Upcoming Events"
+  const normalized = events.map((event) => {
+    const dt = (event as any).dateTime;
+    let dateObj: Date;
+    if (dt instanceof Timestamp) dateObj = dt.toDate();
+    else if (typeof dt === 'string') dateObj = new Date(dt);
+    else dateObj = new Date();
+    return { ...event, dateTime: dateObj };
+  });
+
+  if (user?.role === 'president') {
+    const myEvents = normalized.filter((e) => (e as any).createdBy === user.uid);
+    const otherUpcoming = normalized.filter((e) => (e as any).createdBy !== user.uid);
+
+    return (
+      <div className="space-y-8">
+        <div>
+          <h2 className="text-2xl font-semibold mb-4">My Events</h2>
+          {myEvents.length === 0 ? (
+            <div className="text-muted-foreground">You haven't published any events yet.</div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {myEvents.map((event) => (
+                <Card key={event.id} className="flex flex-col">
+                  <CardHeader>
+                    <CardTitle className="truncate">{event.name}</CardTitle>
+                    <CardDescription>{format(event.dateTime, "EEEE, MMMM do, yyyy 'at' p")}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-grow">
+                    <p className="line-clamp-3 text-sm text-muted-foreground">{event.description}</p>
+                  </CardContent>
+                  <CardFooter>
+                    <Button asChild size="sm">
+                      <Link href={`/events/${event.id}`}>View Details</Link>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-semibold mb-4">Upcoming Events</h2>
+          {otherUpcoming.length === 0 ? (
+            <div className="text-muted-foreground">No upcoming events from other organizers.</div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {otherUpcoming.map((event) => (
+                <Card key={event.id} className="flex flex-col">
+                  <CardHeader>
+                    <CardTitle className="truncate">{event.name}</CardTitle>
+                    <CardDescription>{format(event.dateTime, "EEEE, MMMM do, yyyy 'at' p")}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-grow">
+                    <p className="line-clamp-3 text-sm text-muted-foreground">{event.description}</p>
+                  </CardContent>
+                  <CardFooter>
+                    <Button asChild size="sm">
+                      <Link href={`/events/${event.id}`}>View Details</Link>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Default (student) view: show all normalized events
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {events.map((event) => {
-        // Safely convert timestamp
-        const eventWithDate = {
-          ...event,
-          dateTime: event.dateTime instanceof Timestamp ? event.dateTime.toDate() : new Date(),
-        };
-        return (
-          <Card key={event.id} className="flex flex-col">
-            <CardHeader>
-              <CardTitle className="truncate">{eventWithDate.name}</CardTitle>
-              <CardDescription>{format(eventWithDate.dateTime, "EEEE, MMMM do, yyyy 'at' p")}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex-grow">
-              <p className="line-clamp-3 text-sm text-muted-foreground">{eventWithDate.description}</p>
-            </CardContent>
-            <CardFooter>
-              <Button asChild size="sm">
-                <Link href={`/events/${event.id}`}>View Details</Link>
-              </Button>
-            </CardFooter>
-          </Card>
-        );
-      })}
+      {normalized.map((event) => (
+        <Card key={event.id} className="flex flex-col">
+          <CardHeader>
+            <CardTitle className="truncate">{event.name}</CardTitle>
+            <CardDescription>{format(event.dateTime, "EEEE, MMMM do, yyyy 'at' p")}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-grow">
+            <p className="line-clamp-3 text-sm text-muted-foreground">{event.description}</p>
+          </CardContent>
+          <CardFooter>
+            <Button asChild size="sm">
+              <Link href={`/events/${event.id}`}>View Details</Link>
+            </Button>
+          </CardFooter>
+        </Card>
+      ))}
     </div>
   );
 }
