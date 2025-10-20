@@ -66,6 +66,7 @@ export default function EventDetailsPage() {
       return;
     }
     
+    // This now only runs when loading is definitively complete.
     if (!initialLoadComplete.current) {
         console.log("LOG: Toast useEffect - Initial load is now complete.");
         initialLoadComplete.current = true;
@@ -78,18 +79,33 @@ export default function EventDetailsPage() {
   }, [event, eventLoading, toast])
 
 
-  const requestGeolocation = () => {
+  const requestGeolocation = async () => {
     console.log("LOG: requestGeolocation called.");
     setPermissionDialogOpen(false); 
-    setIsNavigating(true);
-
-    if (!navigator.geolocation) {
-      console.error("LOG: Geolocation not supported by browser.");
-      toast({ variant: "destructive", title: "Geolocation not supported", description: "Your browser does not support geolocation." });
+    
+    if (!navigator.geolocation || !navigator.permissions) {
+      console.error("LOG: Geolocation or permissions API not supported.");
+      toast({ variant: "destructive", title: "Geolocation not supported", description: "Your browser does not support geolocation features." });
       setIsNavigating(false);
       return;
     }
+    
+    const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+    console.log(`LOG: Geolocation permission status from within requestGeolocation: ${permissionStatus.state}`);
 
+    if (permissionStatus.state === 'denied') {
+        console.log("LOG: Permission is denied. Showing toast.");
+         toast({ 
+             variant: "destructive", 
+             title: "Geolocation Denied", 
+             description: "You have blocked location access. Please enable it in your browser settings to use navigation." 
+         });
+         setIsNavigating(false);
+         return;
+    }
+
+    // This part runs if status is 'granted' or 'prompt'
+    setIsNavigating(true);
     console.log("LOG: Calling navigator.geolocation.getCurrentPosition...");
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -107,27 +123,9 @@ export default function EventDetailsPage() {
     );
   };
 
-  const handleNavigateClick = async () => {
+  const handleNavigateClick = () => {
     console.log("LOG: handleNavigateClick called.");
-    if (!navigator.geolocation || !navigator.permissions) {
-      console.error("LOG: Geolocation or permissions API not supported.");
-      toast({ variant: "destructive", title: "Geolocation not supported", description: "Your browser does not support geolocation features." });
-      return;
-    }
-    
-    const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
-    console.log(`LOG: Geolocation permission status: ${permissionStatus.state}`);
-
-    if (permissionStatus.state === 'denied') {
-        console.log("LOG: Permission is denied. Showing toast.");
-         toast({ 
-             variant: "destructive", 
-             title: "Geolocation Denied", 
-             description: "You have blocked location access. Please enable it in your browser settings to use navigation." 
-         });
-         return;
-    }
-
+    // Directly open the custom dialog to ask for permission first.
     console.log("LOG: Opening permission dialog.");
     setPermissionDialogOpen(true);
   };
@@ -155,7 +153,7 @@ export default function EventDetailsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Location Permission Required</AlertDialogTitle>
             <AlertDialogDescription>
-              To show you the route, Campus Connect needs to access your device's location. Please click "Allow" when your browser asks for permission.
+              To show you the route, Campus Connect needs to access your device's location. Please click "Allow" to continue.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
