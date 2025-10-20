@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
 import { doc, Timestamp } from "firebase/firestore";
@@ -32,9 +32,23 @@ export default function EventDetailsPage() {
   const [userLocation, setUserLocation] = useState<L.LatLng | null>(null);
   const [showRoute, setShowRoute] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const initialLoadComplete = useRef(false);
 
   useEffect(() => {
-    if (!eventLoading && !event) {
+    // This effect should only run once the initial loading is complete.
+    // We use a ref to track if the initial load has happened.
+    if (eventLoading) {
+      return;
+    }
+    
+    // Once isLoading is false, we mark the initial load as complete.
+    if (!initialLoadComplete.current) {
+        initialLoadComplete.current = true;
+    }
+
+    // Now, if the initial load is complete and there's still no event,
+    // it means the event truly wasn't found.
+    if (initialLoadComplete.current && !event) {
         toast({ variant: "destructive", title: "Error", description: "Event not found." });
     }
   }, [event, eventLoading, toast])
@@ -62,7 +76,7 @@ export default function EventDetailsPage() {
     );
   };
 
-  if (eventLoading) {
+  if (eventLoading && !initialLoadComplete.current) {
     return <div className="flex h-[calc(100vh-4rem)] items-center justify-center"><Loader className="h-12 w-12" /></div>;
   }
 
