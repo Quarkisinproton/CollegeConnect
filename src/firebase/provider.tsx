@@ -2,7 +2,7 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, onSnapshot } from 'firebase/firestore';
+import { Firestore, doc, onSnapshot, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import type { CampusConnectUser } from '@/types';
@@ -72,15 +72,18 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
           const userDocRef = doc(firestore, 'users', firebaseUser.uid);
           const unsubscribeUser = onSnapshot(
             userDocRef,
-            (doc) => {
-              if (doc.exists()) {
-                const userData = doc.data() as CampusConnectUser;
+            (docSnapshot) => {
+              if (docSnapshot.exists()) {
+                const userData = docSnapshot.data() as CampusConnectUser;
                 setUserAuthState({
                   user: { ...firebaseUser, ...userData },
                   isUserLoading: false,
                   userError: null,
                 });
               } else {
+                 // The user is authenticated, but their profile doc doesn't exist.
+                 // This can happen during the brief moment of login before the login page creates the doc.
+                 // We'll treat them as a base authenticated user without the extra role info for now.
                  setUserAuthState({ user: firebaseUser as any, isUserLoading: false, userError: null });
               }
             },

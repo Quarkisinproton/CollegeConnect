@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, initiateAnonymousSignIn, setDocumentNonBlocking } from "@/firebase";
 import { doc, serverTimestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
@@ -15,6 +15,7 @@ type Role = 'student' | 'president';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const auth = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -35,22 +36,19 @@ export default function LoginPage() {
         createdAt: serverTimestamp(),
       };
       
-      // Use the non-blocking version of setDoc which has built-in contextual error handling
-      setDocumentNonBlocking(userDocRef, userData, { merge: true });
+      // We are explicitly setting the document here upon login.
+      await setDoc(userDocRef, userData, { merge: true });
 
       toast({
         title: "Login Successful",
         description: `You are now logged in as a ${role}.`,
       });
-
-      if (role === 'president') {
-        router.push('/events/create');
-      } else {
-        router.push("/dashboard");
-      }
+      
+      const redirectPath = searchParams.get('redirect') || '/dashboard';
+      router.push(redirectPath);
 
     } catch (error: any) {
-      // This will now only catch errors from initiateAnonymousSignIn, not Firestore.
+      console.error("Login failed:", error);
       toast({
         variant: "destructive",
         title: "Login Failed",

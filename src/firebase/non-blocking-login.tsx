@@ -4,8 +4,13 @@ import {
   signInAnonymously,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  setDoc,
+  doc,
+  serverTimestamp,
   // Assume getAuth and app are initialized elsewhere
 } from 'firebase/auth';
+import { firestore } from 'firebase/firestore';
+
 
 /** Initiate anonymous sign-in (non-blocking). */
 export function initiateAnonymousSignIn(authInstance: Auth) {
