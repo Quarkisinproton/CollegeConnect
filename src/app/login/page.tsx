@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth, initiateAnonymousSignIn } from "@/firebase";
-import { setDoc, doc, serverTimestamp } from "firebase/firestore";
+import { useAuth, initiateAnonymousSignIn, setDocumentNonBlocking } from "@/firebase";
+import { doc, serverTimestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,13 +27,16 @@ export default function LoginPage() {
       const user = userCredential.user;
 
       const userDocRef = doc(firestore, "users", user.uid);
-      await setDoc(userDocRef, {
+      const userData = {
         uid: user.uid,
         email: user.email,
         displayName: user.displayName || "Anonymous User",
         role: role,
         createdAt: serverTimestamp(),
-      }, { merge: true });
+      };
+      
+      // Use the non-blocking version of setDoc which has built-in contextual error handling
+      setDocumentNonBlocking(userDocRef, userData, { merge: true });
 
       toast({
         title: "Login Successful",
@@ -47,6 +50,7 @@ export default function LoginPage() {
       }
 
     } catch (error: any) {
+      // This will now only catch errors from initiateAnonymousSignIn, not Firestore.
       toast({
         variant: "destructive",
         title: "Login Failed",
