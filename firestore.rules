@@ -1,62 +1,85 @@
 /**
  * @file Firestore Security Rules
- * @core_philosophy This ruleset prioritizes a balance between open access for public content (events) and strict ownership for user-specific data.
- * @data_structure
- *   - /events/{eventId}: Stores publicly accessible event data.
- *   - /users/{userId}: Stores private user profile data.
- * @key_security_decisions
- *   - Events are publicly readable (get, list) to facilitate discovery.
- *   - Event creation is restricted to authenticated users (isSignedIn()).
- *   - Event updates and deletes are restricted to the event creator (isOwner()).
- *   - Users can only manage their own profile data in /users/{userId} (isOwner()).
- * @denormalization_for_authorization
- *   - The Event entity contains a `createdBy` field, which stores the UID of the user who created the event. This is used to enforce owner-only write access.
- * @structural_segregation
- *   - Public event data is stored in the top-level `/events` collection, while private user data is stored under `/users/{userId}`.
+ * @description This ruleset implements a mixed security model, balancing public readability with user-controlled writes.
+ *
+ * Data Structure:
+ * - /events/{eventId}: Publicly readable event data. Only authenticated users can create events. Updates and deletes are restricted to the event creator.
+ * - /users/{userId}: User profile data, accessible only to the user themselves.
+ *
+ * Key Security Decisions:
+ * - Public Read Access for Events: The 'events' collection is designed for public listing to support the app's discovery features.
+ * - Owner-Only Writes for Events: Event creation, updates, and deletion are strictly controlled by the creating user, enforced using the `createdBy` field.
+ * - User-Controlled Profiles: Each user can only manage their own profile data in the 'users' collection.
+ *
+ * Denormalization for Authorization:
+ * - Events documents include a `createdBy` field, which is used to enforce owner-only write access. This avoids needing to query a separate collection to determine ownership.
+ *
+ * Structural Segregation:
+ * - The app uses separate collections ('events' and 'users') to manage public and private data, respectively, optimizing for performance and security.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows public read access to all events, but restricts creation, update, and deletion to the event creator.
+     * @description Controls access to the 'events' collection. Events are publicly readable, but creation, updates, and deletes are restricted to the event creator.
      * @path /events/{eventId}
-     * @allow (get, list) - Any user can read event data.
-     * @allow (create) - Authenticated user can create an event. The `createdBy` field must match the user's UID.
-     * @allow (update, delete) - Only the user who created the event (createdBy) can update or delete it.
-     * @deny (create) - An unauthenticated user cannot create an event.
-     * @deny (update, delete) - A user cannot update or delete an event they did not create.
-     * @principle Public read with owner-only writes. Enforces document ownership for writes.
+     * @allow (get, list): Any user can read event data.
+     * @allow (create): An authenticated user can create an event if the 'createdBy' field matches their UID.
+     * @allow (update, delete): Only the user who created the event can modify or delete it.
+     * @deny (create): An unauthenticated user cannot create an event.
+     * @deny (update, delete): A user cannot modify or delete an event they did not create.
+     * @principle Public Read with Owner-Only Writes: Allows public discovery of events while ensuring event creators retain control over their content.
      */
     match /events/{eventId} {
-      allow get, list: if true;
+      allow get: if true;
+      allow list: if true;
+
       allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
-      allow update, delete: if isExistingOwner(resource.data.createdBy);
+      allow update: if isSignedIn() && isExistingOwner(resource.data.createdBy);
+      allow delete: if isSignedIn() && isExistingOwner(resource.data.createdBy);
     }
 
     /**
-     * @description Allows a user to manage their own profile data only.
+     * @description Controls access to user profile data in the 'users' collection. Each user can only access their own profile.
      * @path /users/{userId}
-     * @allow (get, update, delete) - Only the user with the matching UID can read, update, or delete their profile.
-     * @allow (create) - Allows user to create their own profile document with matching UID.
-     * @deny (get, update, delete) - A user cannot access or modify another user's profile.
-     * @deny (create) - A user cannot create a profile document with a UID that does not match their own.
-     * @principle Enforces document ownership for all operations.
+     * @allow (get, update, delete): A user can access and modify their own profile data.
+     * @allow (create): A user can create their own profile if their UID matches the document ID.
+     * @deny (get, update, delete): A user cannot access or modify another user's profile.
+     * @principle Ownership: Enforces strict user-ownership for profile data.
      */
     match /users/{userId} {
-      allow get, update, delete: if isExistingOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.uid == request.auth.uid;
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && request.resource.data.uid == resource.data.uid;
+      allow delete: if isOwner(userId);
     }
 
-    // Helper functions
+    // --- Helper Functions ---
+
+    /**
+     * @description Checks if the request is authenticated.
+     * @return {boolean} True if the user is signed in, false otherwise.
+     */
     function isSignedIn() {
       return request.auth != null;
     }
 
+    /**
+     * @description Checks if the authenticated user is the owner of the resource based on the provided userId.
+     * @param {string} userId - The user ID to compare against the authenticated user's UID.
+     * @return {boolean} True if the user is the owner, false otherwise.
+     */
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
+    /**
+     * @description Checks if the authenticated user is the owner of the existing resource.
+     * @param {string} userId - The user ID to compare against the authenticated user's UID.
+     * @return {boolean} True if the user is the owner of the resource and the resource exists, false otherwise.
+     */
     function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
     }
