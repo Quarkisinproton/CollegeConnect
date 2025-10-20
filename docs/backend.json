@@ -97,7 +97,7 @@
           "schema": {
             "$ref": "#/entities/Event"
           },
-          "description": "Stores all events. Publicly readable, but only authenticated users can create events. Events can only be updated or deleted by the user who created them."
+          "description": "Stores all events. Publicly readable and writable for debugging purposes."
         }
       },
       {
