@@ -1,65 +1,23 @@
-/**
- * @file Firestore Security Rules
- * @description This ruleset enforces a role-based access control model where presidents can create events,
- * students can view events, and users can only manage their own user profiles.
- *
- * Data Structure:
- * - /events/{eventId}: Stores event data.
- * - /users/{userId}: Stores user profile data.
- *
- * Key Security Decisions:
- * - Users can only create, read, update, and delete their own user profiles.
- * - Events are publicly readable.
- * - Only users with the 'president' role can create, update, or delete events.
- * - The 'role' field in the /users/{userId} document is trusted.
- *
- * Denormalization for Authorization:
- * - The /events/{eventId} documents contain the creator's UID in the 'createdBy' field.
- */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    /**
-     * @description Allows users with the 'president' role to create, update, and delete events, and allows all users to read events.
-     * @path /events/{eventId}
-     * @allow (get, list) - Any user can read events.
-     * @allow (create) - A user with 'president' role can create events.
-     * @allow (update, delete) - A user with 'president' role can update or delete events.
-     * @deny (create) - A user without 'president' role cannot create events.
-     * @deny (update, delete) - A user without 'president' role cannot update or delete events.
-     * @principle Enforces role-based access control for events.
-     */
-    match /events/{eventId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && isPresident();
-      allow update, delete: if isSignedIn() && isPresident() && resource.data.createdBy == request.auth.uid && resource != null;
-    }
-
-    /**
-     * @description Allows a user to create, read, update, and delete their own user profile.
-     * @path /users/{userId}
-     * @allow (create) - A user can create their own user profile.
-     * @allow (get, update, delete) - A user can read, update, and delete their own user profile.
-     * @deny (get, update, delete) - A user cannot read, update, or delete another user's profile.
-     * @principle Enforces user-ownership for user profiles.
-     */
+    // Users can create their own profile, and can only read/write their own profile afterwards.
     match /users/{userId} {
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == request.auth.uid;
-      allow get, update, delete: if isSignedIn() && isOwner(userId) && resource.data.uid == request.auth.uid && resource != null;
-      allow list: if false;
+      allow read, update: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
     }
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
+    match /events/{eventId} {
+      // Any authenticated user can view events.
+      allow read: if request.auth != null;
+      
+      // Only users with the 'president' role can create events.
+      // This rule reads the user's profile to check their role.
+      allow create: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'president';
 
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    function isPresident() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'president';
+      // The user who created the event can update or delete it.
+      allow update, delete: if request.auth != null && resource.data.createdBy == request.auth.uid;
     }
   }
 }
