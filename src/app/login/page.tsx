@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth, initiateAnonymousSignIn } from "@/firebase";
+import { useAuth, initiateAnonymousSignIn, useFirestore, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { useFirestore } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -37,8 +36,17 @@ export default function LoginPage() {
       };
       
       // We are explicitly setting the document here upon login.
-      await setDoc(userDocRef, userData, { merge: true });
+      setDoc(userDocRef, userData, { merge: true }).catch(error => {
+        const contextualError = new FirestorePermissionError({
+          operation: 'create',
+          path: userDocRef.path,
+          requestResourceData: userData,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        setIsLoading(null); // Reset loading state on error
+      });
 
+      // Optimistically navigate and show toast
       toast({
         title: "Login Successful",
         description: `You are now logged in as a ${role}.`,
@@ -48,7 +56,8 @@ export default function LoginPage() {
       router.push(redirectPath);
 
     } catch (error: any) {
-      console.error("Login failed:", error);
+      // This catch block handles errors from initiateAnonymousSignIn
+      console.error("Authentication failed:", error);
       toast({
         variant: "destructive",
         title: "Login Failed",
