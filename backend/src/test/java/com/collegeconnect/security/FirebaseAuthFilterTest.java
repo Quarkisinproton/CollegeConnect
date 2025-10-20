@@ -13,7 +13,7 @@ import org.springframework.http.HttpStatus;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.mockito.Mockito.when;
 
-@WebMvcTest
+@WebMvcTest(com.collegeconnect.controllers.EventController.class)
 public class FirebaseAuthFilterTest {
 
     @Autowired
@@ -21,6 +21,12 @@ public class FirebaseAuthFilterTest {
 
     @MockBean
     private FirebaseTokenVerifier tokenVerifier;
+
+    @MockBean
+    private com.google.cloud.firestore.Firestore firestore;
+
+    @MockBean
+    private com.collegeconnect.security.CurrentUser currentUser;
 
     @Test
     public void requestsWithoutAuth_shouldReturn401() throws Exception {

@@ -50,10 +50,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleAny(Exception ex, HttpServletRequest request) {
+        String message = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
         Map<String, Object> body = Map.of(
                 "timestamp", Instant.now().toString(),
                 "status", HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "error", ex.getMessage(),
+                "error", message,
                 "path", request.getRequestURI()
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
