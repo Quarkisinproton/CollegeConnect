@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -6,10 +7,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
-import { collection, Timestamp } from "firebase/firestore";
+import { collection, Timestamp, addDoc } from "firebase/firestore";
 import L from "leaflet";
 
-import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase";
+import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -62,23 +63,40 @@ export default function CreateEventPage() {
     const eventDateTime = new Date(values.date);
     eventDateTime.setHours(hours, minutes);
 
-    addDocumentNonBlocking(collection(firestore, "events"), {
-        name: values.name,
-        description: values.description,
-        dateTime: Timestamp.fromDate(eventDateTime),
-        location: {
-          lat: selectedLocation.lat,
-          lng: selectedLocation.lng,
-        },
-        locationName: values.locationName,
-        createdBy: authUser.uid,
-        creatorName: authUser.displayName || "Anonymous User",
-        createdAt: Timestamp.now(),
-      });
+    const eventData = {
+      name: values.name,
+      description: values.description,
+      dateTime: Timestamp.fromDate(eventDateTime),
+      location: {
+        lat: selectedLocation.lat,
+        lng: selectedLocation.lng,
+      },
+      locationName: values.locationName,
+      createdBy: authUser.uid,
+      creatorName: authUser.displayName || "Anonymous User",
+      createdAt: Timestamp.now(),
+    };
 
-      toast({ title: "Success", description: "Event created successfully." });
-      router.push("/dashboard");
-      setIsLoading(false);
+    const eventsColRef = collection(firestore, "events");
+
+    addDoc(eventsColRef, eventData)
+      .then(() => {
+        toast({ title: "Success", description: "Event created successfully." });
+        router.push("/dashboard");
+      })
+      .catch((error) => {
+        const permissionError = new FirestorePermissionError({
+          path: eventsColRef.path,
+          operation: 'create',
+          requestResourceData: eventData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        // We don't show a toast here because the FirebaseErrorListener will throw
+        // an error that Next.js will display in an overlay, which is more informative.
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   }
 
   return (
@@ -134,3 +152,5 @@ export default function CreateEventPage() {
     </div>
   );
 }
+
+    
