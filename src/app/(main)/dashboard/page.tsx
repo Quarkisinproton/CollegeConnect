@@ -47,7 +47,9 @@ function EventList() {
       } catch (e) {
         // ignore
       }
-      fetch(`/api/events?owner=true`, { method: 'GET', headers })
+  // In local emulator mode the backend allows passing uid explicitly
+  // so that we can filter without requiring Firebase Admin token verification.
+  fetch(`/api/events?owner=true&uid=${user.uid}`, { method: 'GET', headers })
       .then(async (res) => {
         if (!res.ok) {
           const txt = await res.text();
@@ -124,35 +126,6 @@ function EventList() {
   }) as DisplayEvent[];
 
   if (user?.role === 'president') {
-    // Fetch owned events from the backend. This ensures presidents see only their events for management.
-    useEffect(() => {
-      let active = true;
-      if (!user?.uid) return;
-      setOwnedLoading(true);
-      setOwnedError(null);
-      fetch(`/api/events?owner=true`, { method: 'GET', headers: { 'Accept': 'application/json' } })
-        .then(async (res) => {
-          if (!res.ok) {
-            const txt = await res.text();
-            throw new Error(txt || 'server error');
-          }
-          return res.json();
-        })
-        .then((json: CampusEvent[]) => {
-          if (!active) return;
-          // Convert dateTime ISO strings to Dates
-          const mapped = (json || []).map((ev) => ({ ...ev, dateTime: ev.dateTime ? new Date(ev.dateTime as any) : new Date() }));
-          setOwnedEvents(mapped);
-        })
-        .catch((err) => {
-          if (!active) return;
-          setOwnedError(err.message || 'Failed to load owned events');
-        })
-        .finally(() => { if (active) setOwnedLoading(false); });
-
-      return () => { active = false; };
-    }, [user?.uid]);
-
   const myEvents = ownedEvents ?? normalized.filter((e) => (e as any).createdBy === user.uid);
   const otherUpcoming = normalized.filter((e) => (e as any).createdBy !== user.uid);
 

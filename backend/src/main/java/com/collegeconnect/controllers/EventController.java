@@ -73,13 +73,16 @@ public class EventController {
     }
 
     @GetMapping
-    public ResponseEntity<?> listEvents(@RequestParam(name = "owner", required = false) Boolean owner) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> listEvents(
+            @RequestParam(name = "owner", required = false) Boolean owner,
+            @RequestParam(name = "uid", required = false) String uidParam
+    ) throws ExecutionException, InterruptedException {
         // If owner=true, return events created by the authenticated user.
         if (owner != null && owner) {
-            String uid = currentUser.getUid();
-            if (uid == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "authentication required"));
-            }
+            // In local emulator mode, the auth filter may be bypassed. Allow caller to provide uid via query param.
+            String emulator = System.getenv("FIRESTORE_EMULATOR_HOST");
+            String uid = (emulator != null && !emulator.isBlank()) ? (uidParam != null ? uidParam : null) : currentUser.getUid();
+            if (uid == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "authentication required"));
 
             ApiFuture<QuerySnapshot> future = firestore.collection("events")
                     .whereEqualTo("createdBy", uid)
@@ -104,7 +107,7 @@ public class EventController {
             return ResponseEntity.ok(results);
         }
 
-        // Default: return all events (unfiltered)
+    // Default: return all events (unfiltered)
         ApiFuture<QuerySnapshot> future = firestore.collection("events").orderBy("dateTime").get();
         List<Map<String, Object>> results = new ArrayList<>();
         for (QueryDocumentSnapshot doc : future.get().getDocuments()) {
