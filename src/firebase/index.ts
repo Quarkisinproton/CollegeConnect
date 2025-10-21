@@ -3,7 +3,7 @@
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
@@ -33,10 +33,30 @@ export function initializeFirebase() {
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
+  const auth = getAuth(firebaseApp);
+  const firestore = getFirestore(firebaseApp);
+
+  // Connect to emulators in development
+  if (process.env.NODE_ENV === 'development') {
+    // Connect to Firestore emulator
+    try {
+      // Check if already connected to avoid errors
+      if (!(firestore as any)._persistenceKey?.includes('localhost')) {
+        connectFirestoreEmulator(firestore, 'localhost', 8080);
+        console.log('Connected to Firestore emulator at localhost:8080');
+      }
+    } catch (e) {
+      console.warn('Could not connect to Firestore emulator:', e);
+    }
+    
+    // Note: Auth emulator is not available via gcloud SDK
+    // Using real Firebase Auth for anonymous sign-in (works without emulator)
+  }
+
   return {
     firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp)
+    auth,
+    firestore
   };
 }
 

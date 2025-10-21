@@ -107,20 +107,18 @@ export default function EventMap({
     }
 
     if (showRoute && userLocation && eventLocation) {
-        const routingControl = L.Routing.control({
-            waypoints: [
-                L.latLng(userLocation.lat, userLocation.lng),
-                L.latLng(eventLocation.lat, eventLocation.lng)
-            ],
-            routeWhileDragging: true,
-            show: false,
-            addWaypoints: false,
-            fitSelectedRoutes: true,
-            lineOptions: {
-              styles: [{ color: '#4169E1', opacity: 0.8, weight: 6 }]
-            },
-            createMarker: function() { return null; }
-        }).addTo(map);
+    const routingControl = L.Routing.control(({
+      waypoints: [
+        L.latLng(userLocation.lat, userLocation.lng),
+        L.latLng(eventLocation.lat, eventLocation.lng)
+      ],
+      routeWhileDragging: true,
+      show: false,
+      addWaypoints: false,
+      fitSelectedRoutes: true,
+      lineOptions: ({ styles: [{ color: '#4169E1', opacity: 0.8, weight: 6 }] } as any),
+      createMarker: function() { return null; }
+    } as any)).addTo(map);
         routingControlRef.current = routingControl;
     }
   }, [showRoute, userLocation, eventLocation]);

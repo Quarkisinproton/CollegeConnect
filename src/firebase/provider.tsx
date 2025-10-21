@@ -69,30 +69,37 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       auth,
       (firebaseUser) => {
         if (firebaseUser) {
-          const userDocRef = doc(firestore, 'users', firebaseUser.uid);
-          const unsubscribeUser = onSnapshot(
-            userDocRef,
-            (docSnapshot) => {
-              if (docSnapshot.exists()) {
-                const userData = docSnapshot.data() as CampusConnectUser;
+          // Prefer backend to fetch the profile to avoid client-side Firestore rules blocking reads during login.
+          (async () => {
+            try {
+              const token = (firebaseUser as any).getIdToken ? await (firebaseUser as any).getIdToken() : null;
+              const backend = process.env.NEXT_PUBLIC_BACKEND_URL || '/api';
+              const res = await fetch(`${backend}/users/${firebaseUser.uid}`, {
+                headers: {
+                  'Accept': 'application/json',
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+              });
+              if (res.ok) {
+                const userData = await res.json() as CampusConnectUser;
                 setUserAuthState({
                   user: { ...firebaseUser, ...userData },
                   isUserLoading: false,
                   userError: null,
                 });
+              } else if (res.status === 404) {
+                // No profile yet; treat as base authenticated user until login page upserts
+                setUserAuthState({ user: firebaseUser as any, isUserLoading: false, userError: null });
               } else {
-                 // The user is authenticated, but their profile doc doesn't exist.
-                 // This can happen during the brief moment of login before the login page creates the doc.
-                 // We'll treat them as a base authenticated user without the extra role info for now.
-                 setUserAuthState({ user: firebaseUser as any, isUserLoading: false, userError: null });
+                const txt = await res.text();
+                console.warn('Profile fetch failed', res.status, txt);
+                setUserAuthState({ user: firebaseUser as any, isUserLoading: false, userError: null });
               }
-            },
-            (error) => {
-              console.error("FirebaseProvider: user doc snapshot error:", error);
-              setUserAuthState({ user: null, isUserLoading: false, userError: error });
+            } catch (e) {
+              console.warn('Profile fetch error', e);
+              setUserAuthState({ user: firebaseUser as any, isUserLoading: false, userError: null });
             }
-          );
-          return () => unsubscribeUser();
+          })();
         } else {
           setUserAuthState({ user: null, isUserLoading: false, userError: null });
         }

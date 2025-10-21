@@ -25,12 +25,25 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getRequestURI();
+        // In local development (when Firestore emulator is used), allow all /api/* requests
+        // to pass through without auth to simplify flows. The emulator env var is set by our
+        // start scripts. Do NOT use this in production environments.
+        if (System.getenv("FIRESTORE_EMULATOR_HOST") != null && path.startsWith("/api/")) {
+            return true;
+        }
         // Allow public access to health endpoint and static assets
         if (path.equals("/health") || path.equals("/healthz") || path.equals("/")) return true;
-        // Allow unauthenticated upsert of user profiles from the client during simulated login.
-        // The frontend performs a PUT to /api/users/{uid} immediately after anonymous sign-in
-        // and may not yet have a valid ID token. Skip the filter for that specific case.
-        if (path.startsWith("/api/users") && "PUT".equalsIgnoreCase(request.getMethod())) return true;
+        // Local-dev convenience: allow unauthenticated access to user profile endpoints.
+        // - PUT /api/users/{uid}: used by the login page to upsert the selected demo profile
+        // - GET /api/users/{uid}: used by the client to fetch the profile after sign-in
+        // In production you should require an ID token, but for emulator-based development we
+        // keep these open to avoid coupling with Firebase Admin configuration.
+        if (path.startsWith("/api/users") && (
+                "PUT".equalsIgnoreCase(request.getMethod()) ||
+                "GET".equalsIgnoreCase(request.getMethod())
+        )) {
+            return true;
+        }
 
         return !path.startsWith("/api/");
     }

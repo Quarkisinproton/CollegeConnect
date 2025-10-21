@@ -1,15 +1,10 @@
 'use client';
 import {
-  Auth, // Import Auth type for type hinting
+  Auth,
   signInAnonymously,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  setDoc,
-  doc,
-  serverTimestamp,
-  // Assume getAuth and app are initialized elsewhere
 } from 'firebase/auth';
-import { firestore } from 'firebase/firestore';
 
 
 /** Initiate anonymous sign-in (non-blocking). */

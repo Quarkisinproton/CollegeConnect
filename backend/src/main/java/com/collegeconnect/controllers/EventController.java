@@ -9,6 +9,12 @@ import com.google.cloud.firestore.Firestore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import com.collegeconnect.security.CurrentUser;
+import com.google.cloud.firestore.QueryDocumentSnapshot;
+import com.google.cloud.firestore.QuerySnapshot;
+import java.util.ArrayList;
+import java.util.List;
 
 import java.time.Instant;
 import java.util.Date;
@@ -25,6 +31,9 @@ public class EventController {
 
     @Autowired
     private FirebaseTokenVerifier tokenVerifier;
+
+    @Autowired
+    private CurrentUser currentUser;
 
     @PostMapping
     public ResponseEntity<?> createEvent(@Valid @RequestBody EventDto dto) throws ExecutionException, InterruptedException {
@@ -61,5 +70,57 @@ public class EventController {
         ApiFuture<DocumentReference> added = firestore.collection("events").add(data);
         DocumentReference docRef = added.get();
         return ResponseEntity.ok(Map.of("id", docRef.getId()));
+    }
+
+    @GetMapping
+    public ResponseEntity<?> listEvents(@RequestParam(name = "owner", required = false) Boolean owner) throws ExecutionException, InterruptedException {
+        // If owner=true, return events created by the authenticated user.
+        if (owner != null && owner) {
+            String uid = currentUser.getUid();
+            if (uid == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "authentication required"));
+            }
+
+            ApiFuture<QuerySnapshot> future = firestore.collection("events")
+                    .whereEqualTo("createdBy", uid)
+                    .orderBy("dateTime")
+                    .get();
+
+            List<Map<String, Object>> results = new ArrayList<>();
+            for (QueryDocumentSnapshot doc : future.get().getDocuments()) {
+                Map<String, Object> data = doc.getData();
+                Object dt = data.get("dateTime");
+                String dtIso = null;
+                if (dt instanceof java.util.Date) {
+                    dtIso = java.time.Instant.ofEpochMilli(((java.util.Date) dt).getTime()).toString();
+                } else if (dt != null) {
+                    dtIso = dt.toString();
+                }
+                Map<String, Object> out = new HashMap<>(data);
+                out.put("id", doc.getId());
+                out.put("dateTime", dtIso);
+                results.add(out);
+            }
+            return ResponseEntity.ok(results);
+        }
+
+        // Default: return all events (unfiltered)
+        ApiFuture<QuerySnapshot> future = firestore.collection("events").orderBy("dateTime").get();
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (QueryDocumentSnapshot doc : future.get().getDocuments()) {
+            Map<String, Object> data = doc.getData();
+            Object dt = data.get("dateTime");
+            String dtIso = null;
+            if (dt instanceof java.util.Date) {
+                dtIso = java.time.Instant.ofEpochMilli(((java.util.Date) dt).getTime()).toString();
+            } else if (dt != null) {
+                dtIso = dt.toString();
+            }
+            Map<String, Object> out = new HashMap<>(data);
+            out.put("id", doc.getId());
+            out.put("dateTime", dtIso);
+            results.add(out);
+        }
+        return ResponseEntity.ok(results);
     }
 }

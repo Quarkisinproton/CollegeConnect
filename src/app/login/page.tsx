@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, initiateAnonymousSignIn, useFirestore } from "@/firebase";
+import { signOut } from "firebase/auth";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -38,6 +39,11 @@ export default function LoginPage() {
     const handleLogin = async (userProfile: PredefinedUser) => {
         setIsLoading(userProfile.displayName);
         try {
+            // Sign out any existing user first to ensure clean state
+            if (auth.currentUser) {
+                await signOut(auth);
+            }
+            
             const userCredential = await initiateAnonymousSignIn(auth);
             const user = userCredential.user;
 
@@ -51,6 +57,8 @@ export default function LoginPage() {
 
             const BACKEND_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '/api';
             const url = `${BACKEND_BASE}/users/${user.uid}`;
+
+            console.log('Saving user profile to:', url, userData);
 
             // try to get id token if available
             let idToken = null;
@@ -68,9 +76,16 @@ export default function LoginPage() {
                 body: JSON.stringify(userData),
             });
 
+            console.log('Backend response status:', res.status);
+
             if (!res.ok) {
-                throw new Error('Failed to write user profile');
+                const errorText = await res.text();
+                console.error('Backend error:', errorText);
+                throw new Error(`Failed to write user profile: ${res.status} ${errorText}`);
             }
+
+            const savedUser = await res.json();
+            console.log('User profile saved successfully:', savedUser);
 
             toast({
                 title: "Login Successful",
@@ -80,8 +95,8 @@ export default function LoginPage() {
             // clear loading state before navigation to avoid UI glitches
             setIsLoading(null);
             const redirectPath = searchParams.get('redirect') || '/dashboard';
-            // use replace so back button doesn't return to login
-            router.replace(redirectPath);
+            // Force a hard navigation to ensure the user context is refreshed with the new profile
+            window.location.href = redirectPath;
 
         } catch (error: any) {
             console.error("Authentication or Firestore operation failed:", error);

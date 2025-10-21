@@ -41,4 +41,17 @@ public class UserController {
 
         return ResponseEntity.ok(Map.of("ok", true));
     }
+
+    @GetMapping("/{uid}")
+    public ResponseEntity<?> getUser(@PathVariable String uid) throws ExecutionException, InterruptedException {
+        DocumentReference docRef = firestore.collection("users").document(uid);
+        var snap = docRef.get().get();
+        if (!snap.exists()) {
+            return ResponseEntity.notFound().build();
+        }
+        Map<String, Object> data = new HashMap<>(snap.getData());
+        // ensure uid field is present
+        data.putIfAbsent("uid", uid);
+        return ResponseEntity.ok(data);
+    }
 }
