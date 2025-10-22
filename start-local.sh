@@ -103,8 +103,9 @@ if check_port 8081; then
 fi
 
 # Set environment variables and start backend
+# IMPORTANT: Use the same project id as the frontend firebase config so both hit the same emulator dataset
 export FIRESTORE_EMULATOR_HOST=localhost:8080
-export FIRESTORE_PROJECT=demo-project
+export FIRESTORE_PROJECT=studio-6560732135-c4764
 
 echo "Starting backend on port 8081..."
 java -jar "$BACKEND_DIR/target/backend-0.0.1-SNAPSHOT.jar" > "$BACKEND_DIR/backend.log" 2>&1 &

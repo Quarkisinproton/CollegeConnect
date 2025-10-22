@@ -41,7 +41,13 @@ export default function EventMap({
   const isUnmountingRef = useRef(false);
 
   useEffect(() => {
+    // Reset unmounting flag on mount
+    isUnmountingRef.current = false;
+    
+    console.log('[EventMap] Effect running - interactive:', interactive, 'onLocationSelect:', !!onLocationSelect, 'mapInstanceRef.current:', !!mapInstanceRef.current);
+    
     if (mapRef.current && !mapInstanceRef.current) {
+      console.log('[EventMap] Creating new map instance');
       const center = eventLocation || selectedLocation || L.latLng(defaultPosition[0], defaultPosition[1]);
       
       const map = L.map(mapRef.current, {
@@ -59,10 +65,22 @@ export default function EventMap({
       map.setMaxBounds([[17.7789300, 83.3724800], [17.7872100, 83.3817700]]);
 
       if (interactive) {
+        console.log('[EventMap] Attaching click handler to map');
         map.on('click', (e) => {
-          onLocationSelect?.(e.latlng);
+          console.log('[EventMap] MAP CLICKED!', e.latlng);
+          if (onLocationSelect) {
+            console.log('[EventMap] Calling onLocationSelect');
+            onLocationSelect(e.latlng);
+          } else {
+            console.log('[EventMap] onLocationSelect is not defined!');
+          }
         });
+        console.log('[EventMap] Click handler attached');
+      } else {
+        console.log('[EventMap] Interactive is false, not attaching click handler');
       }
+    } else {
+      console.log('[EventMap] Skipping map creation - mapRef.current:', !!mapRef.current, 'mapInstanceRef.current:', !!mapInstanceRef.current);
     }
 
     return () => {
@@ -100,23 +118,35 @@ export default function EventMap({
   }, []); // Only run once on mount and unmount
 
   useEffect(() => {
-  if (isUnmountingRef.current) return;
-  const map = mapInstanceRef.current;
-    if (!map) return;
+    console.log('[EventMap] Marker effect running - selectedLocation:', selectedLocation, 'eventLocation:', eventLocation, 'userLocation:', userLocation);
+    if (isUnmountingRef.current) {
+      console.log('[EventMap] Component is unmounting, skipping marker update');
+      return;
+    }
+    const map = mapInstanceRef.current;
+    if (!map) {
+      console.log('[EventMap] Map instance not ready, skipping marker update');
+      return;
+    }
 
+    console.log('[EventMap] Clearing previous markers, count:', markersRef.current.length);
     // Clear previous markers
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
 
     if (selectedLocation) {
+        console.log('[EventMap] Adding selected location marker at:', selectedLocation);
         const marker = L.marker(selectedLocation).addTo(map).bindPopup("You selected this location");
         markersRef.current.push(marker);
+        console.log('[EventMap] Marker added successfully');
     }
     if (eventLocation) {
+        console.log('[EventMap] Adding event location marker');
         const marker = L.marker(eventLocation).addTo(map).bindPopup("Event Location");
         markersRef.current.push(marker);
     }
     if (userLocation) {
+        console.log('[EventMap] Adding user location marker');
         const marker = L.marker(userLocation).addTo(map).bindPopup("Your Location");
         markersRef.current.push(marker);
     }
