@@ -155,12 +155,20 @@ export default function EventMap({
 
 
   useEffect(() => {
-    if (isUnmountingRef.current) return;
+    console.log('[EventMap] Route effect - showRoute:', showRoute, 'userLocation:', userLocation, 'eventLocation:', eventLocation);
+    if (isUnmountingRef.current) {
+      console.log('[EventMap] Route effect skipped: unmounting');
+      return;
+    }
     const map = mapInstanceRef.current;
-    if (!map) return;
+    if (!map) {
+      console.log('[EventMap] Route effect skipped: map not ready');
+      return;
+    }
     
     // Remove existing routing control if it exists
     if (routingControlRef.current) {
+        console.log('[EventMap] Removing existing routing control');
         // Some routers finish asynchronously and try to clear lines after control removal,
         // which can throw if the control's map is already nulled. Defer removal safely.
         const ctrl = routingControlRef.current;
@@ -170,13 +178,14 @@ export default function EventMap({
           (ctrl as any)?.setWaypoints?.([]);
         } catch {}
         setTimeout(() => {
-          try { map.removeControl(ctrl); } catch {}
+          try { map.removeControl(ctrl); console.log('[EventMap] Routing control removed'); } catch (e) { console.log('[EventMap] Error removing routing control', e); }
         }, 0);
     }
 
     if (showRoute && userLocation && eventLocation) {
     // Guard against the routing plugin not being available
-    if (!(L as any).Routing || !(L as any).Routing.control) return;
+    if (!(L as any).Routing || !(L as any).Routing.control) { console.log('[EventMap] L.Routing not available'); return; }
+    console.log('[EventMap] Creating routing control with waypoints', { from: userLocation, to: eventLocation });
     const routingControl = (L as any).Routing.control(({
       waypoints: [
         L.latLng(userLocation.lat, userLocation.lng),
@@ -190,6 +199,9 @@ export default function EventMap({
       createMarker: function() { return null; }
     } as any)).addTo(map);
         routingControlRef.current = routingControl;
+        console.log('[EventMap] Routing control added');
+    } else {
+      console.log('[EventMap] Not creating route (conditions not met)');
     }
   }, [showRoute, userLocation, eventLocation]);
 

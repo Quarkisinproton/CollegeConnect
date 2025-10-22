@@ -59,6 +59,14 @@ export default function EventDetailsPage() {
   const initialLoadComplete = useRef(false);
 
   useEffect(() => {
+    console.log('LOG: permissionDialogOpen changed ->', permissionDialogOpen);
+  }, [permissionDialogOpen]);
+
+  useEffect(() => {
+    console.log('LOG: userLocation updated ->', userLocation);
+  }, [userLocation]);
+
+  useEffect(() => {
     console.log(`LOG: Toast useEffect running - eventLoading: ${eventLoading}, initialLoadComplete: ${initialLoadComplete.current}`);
     
     if (eventLoading) {
