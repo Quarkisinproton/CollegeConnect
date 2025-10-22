@@ -81,32 +81,25 @@ export default function EventDetailsPage() {
 
   const requestGeolocation = async () => {
     console.log("LOG: requestGeolocation called.");
-    setPermissionDialogOpen(false); 
-    
-    if (!navigator.geolocation || !navigator.permissions) {
-      console.error("LOG: Geolocation or permissions API not supported.");
-      toast({ variant: "destructive", title: "Geolocation not supported", description: "Your browser does not support geolocation features." });
-      setIsNavigating(false);
+    setPermissionDialogOpen(false);
+
+    if (!navigator.geolocation) {
+      console.error("LOG: Geolocation API not supported.");
+      toast({ variant: "destructive", title: "Geolocation not supported", description: "Your browser doesn't support geolocation." });
       return;
     }
-    
-    const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
-    console.log(`LOG: Geolocation permission status from within requestGeolocation: ${permissionStatus.state}`);
 
-    if (permissionStatus.state === 'denied') {
-        console.log("LOG: Permission is denied. Showing toast.");
-         toast({ 
-             variant: "destructive", 
-             title: "Geolocation Denied", 
-             description: "You have blocked location access. Please enable it in your browser settings to use navigation." 
-         });
-         setIsNavigating(false);
-         return;
+    // Don't block on permissions API (not supported consistently). Use it only for diagnostics.
+    try {
+      // @ts-ignore
+      const perm: any = await (navigator.permissions?.query?.({ name: 'geolocation' as any }) ?? Promise.resolve(null));
+      if (perm) console.log(`LOG: Permissions API state: ${perm.state}`);
+    } catch (e) {
+      console.log('LOG: Permissions API not available, continuing with direct geolocation call.');
     }
 
-    // This part runs if status is 'granted' or 'prompt'
     setIsNavigating(true);
-    console.log("LOG: Calling navigator.geolocation.getCurrentPosition...");
+    console.log("LOG: Calling navigator.geolocation.getCurrentPosition (this should trigger the native prompt if not already decided)...");
     navigator.geolocation.getCurrentPosition(
       (position) => {
         console.log("LOG: Geolocation success.", position.coords);
@@ -117,8 +110,17 @@ export default function EventDetailsPage() {
       },
       (error) => {
         console.error("LOG: Geolocation error.", error);
-        toast({ variant: "destructive", title: "Geolocation error", description: "You denied location access. To use this feature, please enable location permissions in your browser settings." });
+        let description = "We couldn't access your location. Click the lock icon in the address bar and allow Location for this site, then try again.";
+        if (error.code === error.PERMISSION_DENIED) {
+          description = "Location permission is blocked. Click the lock icon in the address bar -> Site settings -> Allow Location, then try again.";
+        }
+        toast({ variant: "destructive", title: "Location permission needed", description });
         setIsNavigating(false);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 15000,
       }
     );
   };

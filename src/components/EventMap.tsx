@@ -161,8 +161,17 @@ export default function EventMap({
     
     // Remove existing routing control if it exists
     if (routingControlRef.current) {
-        map.removeControl(routingControlRef.current);
+        // Some routers finish asynchronously and try to clear lines after control removal,
+        // which can throw if the control's map is already nulled. Defer removal safely.
+        const ctrl = routingControlRef.current;
         routingControlRef.current = null;
+        try {
+          // Best-effort: clear waypoints to cancel pending requests
+          (ctrl as any)?.setWaypoints?.([]);
+        } catch {}
+        setTimeout(() => {
+          try { map.removeControl(ctrl); } catch {}
+        }, 0);
     }
 
     if (showRoute && userLocation && eventLocation) {
