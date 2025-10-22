@@ -39,6 +39,8 @@ export default function EventMap({
   const routingControlRef = useRef<L.Routing.Control | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const isUnmountingRef = useRef(false);
+  // Track the last waypoints we routed between to avoid unnecessary re-creations
+  const lastWaypointsRef = useRef<{ from: { lat: number; lng: number }; to: { lat: number; lng: number } } | null>(null);
 
   useEffect(() => {
     // Reset unmounting flag on mount
@@ -166,6 +168,23 @@ export default function EventMap({
       return;
     }
     
+    // If waypoints haven't changed and a routing control already exists, skip re-creating it
+    const currentWaypoints = (userLocation && eventLocation)
+      ? { from: { lat: userLocation.lat, lng: userLocation.lng }, to: { lat: eventLocation.lat, lng: eventLocation.lng } }
+      : null;
+
+    const epsilon = 1e-6; // avoid flapping on tiny float diffs
+    const sameAsLast = !!currentWaypoints && !!lastWaypointsRef.current &&
+      Math.abs(currentWaypoints.from.lat - lastWaypointsRef.current.from.lat) < epsilon &&
+      Math.abs(currentWaypoints.from.lng - lastWaypointsRef.current.from.lng) < epsilon &&
+      Math.abs(currentWaypoints.to.lat - lastWaypointsRef.current.to.lat) < epsilon &&
+      Math.abs(currentWaypoints.to.lng - lastWaypointsRef.current.to.lng) < epsilon;
+
+    if (sameAsLast && routingControlRef.current && showRoute) {
+      console.log('[EventMap] Waypoints unchanged; keeping existing routing control');
+      return;
+    }
+
     // Remove existing routing control if it exists
     if (routingControlRef.current) {
         console.log('[EventMap] Removing existing routing control');
@@ -199,6 +218,10 @@ export default function EventMap({
       createMarker: function() { return null; }
     } as any)).addTo(map);
         routingControlRef.current = routingControl;
+        lastWaypointsRef.current = {
+          from: { lat: userLocation.lat, lng: userLocation.lng },
+          to: { lat: eventLocation.lat, lng: eventLocation.lng },
+        };
         console.log('[EventMap] Routing control added');
     } else {
       console.log('[EventMap] Not creating route (conditions not met)');
