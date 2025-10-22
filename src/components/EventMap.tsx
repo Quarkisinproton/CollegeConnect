@@ -38,6 +38,7 @@ export default function EventMap({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const routingControlRef = useRef<L.Routing.Control | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
+  const isUnmountingRef = useRef(false);
 
   useEffect(() => {
     if (mapRef.current && !mapInstanceRef.current) {
@@ -65,15 +66,42 @@ export default function EventMap({
     }
 
     return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
+      // Mark as unmounting to avoid any late-running effects
+      isUnmountingRef.current = true;
+
+      const map = mapInstanceRef.current;
+      try {
+        // Proactively remove routing control first (some plugins expect a live map during cleanup)
+        if (map && routingControlRef.current) {
+          try {
+            map.removeControl(routingControlRef.current);
+          } catch (e) {
+            // swallow – best-effort cleanup
+          } finally {
+            routingControlRef.current = null;
+          }
+        }
+
+        // Remove markers
+        markersRef.current.forEach(m => {
+          try { m.remove(); } catch {}
+        });
+        markersRef.current = [];
+
+        // Detach listeners and remove the map
+        if (map) {
+          try { map.off(); } catch {}
+          try { map.remove(); } catch {}
+        }
+      } finally {
         mapInstanceRef.current = null;
       }
     };
   }, []); // Only run once on mount and unmount
 
   useEffect(() => {
-    const map = mapInstanceRef.current;
+  if (isUnmountingRef.current) return;
+  const map = mapInstanceRef.current;
     if (!map) return;
 
     // Clear previous markers
@@ -97,6 +125,7 @@ export default function EventMap({
 
 
   useEffect(() => {
+    if (isUnmountingRef.current) return;
     const map = mapInstanceRef.current;
     if (!map) return;
     
@@ -107,7 +136,9 @@ export default function EventMap({
     }
 
     if (showRoute && userLocation && eventLocation) {
-    const routingControl = L.Routing.control(({
+    // Guard against the routing plugin not being available
+    if (!(L as any).Routing || !(L as any).Routing.control) return;
+    const routingControl = (L as any).Routing.control(({
       waypoints: [
         L.latLng(userLocation.lat, userLocation.lng),
         L.latLng(eventLocation.lat, eventLocation.lng)
