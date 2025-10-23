@@ -4,9 +4,8 @@
 import { useState, useEffect, useRef } from "react";
 import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
-import { doc, Timestamp } from "firebase/firestore";
+import { Timestamp } from "firebase/firestore";
 import L from "leaflet";
-import { useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import { Loader } from "@/components/ui/loader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,20 +34,53 @@ export default function EventDetailsPage() {
   console.log("LOG: EventDetailsPage component rendered or re-rendered.");
   const params = useParams();
   const id = params.id as string;
-  const firestore = useFirestore();
   const { toast } = useToast();
 
   console.log(`LOG: Event ID from params: ${id}`);
 
-  const eventDocRef = useMemoFirebase(() => {
-    console.log(`LOG: useMemoFirebase running for doc ref with id: ${id}`);
-    return id ? doc(firestore, "events", id) : null;
-  }, [firestore, id]);
+  const [event, setEvent] = useState<CampusEvent | null>(null);
+  const [eventLoading, setEventLoading] = useState(true);
+  const [eventError, setEventError] = useState<string | null>(null);
 
-  const { data: event, isLoading: eventLoading, error: eventError } = useDoc<CampusEvent>(eventDocRef);
+  // Fetch event from backend API
+  useEffect(() => {
+    if (!id) return;
+    
+    let active = true;
+    setEventLoading(true);
+    setEventError(null);
+
+    console.log(`LOG: Fetching event with id: ${id} from backend API`);
+    
+    fetch(`/api/events/${id}`)
+      .then(async (res) => {
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error('Event not found');
+          }
+          throw new Error('Failed to load event');
+        }
+        return res.json();
+      })
+      .then((data: CampusEvent) => {
+        if (!active) return;
+        console.log('LOG: Event fetched from backend:', data);
+        setEvent(data);
+      })
+      .catch((err) => {
+        if (!active) return;
+        console.error('LOG: Error fetching event:', err);
+        setEventError(err.message || 'Failed to load event');
+      })
+      .finally(() => {
+        if (active) setEventLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [id]);
 
   useEffect(() => {
-    console.log(`LOG: useDoc state change - isLoading: ${eventLoading}, event: ${event ? 'Exists' : 'null'}, error: ${eventError}`);
+    console.log(`LOG: Event state change - isLoading: ${eventLoading}, event: ${event ? 'Exists' : 'null'}, error: ${eventError}`);
   }, [event, eventLoading, eventError]);
 
 
@@ -152,7 +184,20 @@ export default function EventDetailsPage() {
   }
   
   console.log("LOG: Render - Event data is available. Rendering page content.");
-  const displayEvent = {...event, dateTime: (event.dateTime as unknown as Timestamp).toDate()};
+  
+  // Convert dateTime from ISO string to Date if needed
+  let dateTimeObj: Date;
+  if (event.dateTime instanceof Date) {
+    dateTimeObj = event.dateTime;
+  } else if (typeof event.dateTime === 'string') {
+    dateTimeObj = new Date(event.dateTime);
+  } else if ((event.dateTime as any) instanceof Timestamp) {
+    dateTimeObj = ((event.dateTime as any) as Timestamp).toDate();
+  } else {
+    dateTimeObj = new Date();
+  }
+  
+  const displayEvent = {...event, dateTime: dateTimeObj};
 
   const eventLocation = L.latLng(displayEvent.location.lat, displayEvent.location.lng);
 

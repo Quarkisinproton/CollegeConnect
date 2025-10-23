@@ -30,6 +30,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# local dev logs
+backend.log
+frontend.log
+*.pid
+
 # vercel
 .vercel
 

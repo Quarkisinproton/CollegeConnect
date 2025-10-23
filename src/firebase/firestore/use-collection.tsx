@@ -80,6 +80,7 @@ export function useCollection<T = any>(
         for (const doc of snapshot.docs) {
           results.push({ ...(doc.data() as T), id: doc.id });
         }
+        console.log('[useCollection] Snapshot received:', { docsCount: snapshot.docs.length, resultsCount: results.length });
         setData(results);
         setError(null);
         setIsLoading(false);
@@ -91,6 +92,8 @@ export function useCollection<T = any>(
             ? (memoizedTargetRefOrQuery as CollectionReference).path
             : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
 
+        console.log('[useCollection] Error occurred:', { code: error.code, message: error.message, path });
+        
         const contextualError = new FirestorePermissionError({
           operation: 'list',
           path,
