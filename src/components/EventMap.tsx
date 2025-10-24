@@ -71,18 +71,33 @@ export default function EventMap({
         map.on('click', (e) => {
           console.log('[EventMap] MAP CLICKED!', e.latlng);
           if (onLocationSelect) {
-            console.log('[EventMap] Calling onLocationSelect');
+            console.log('[EventMap] Calling onLocationSelect with:', e.latlng);
             onLocationSelect(e.latlng);
           } else {
             console.log('[EventMap] onLocationSelect is not defined!');
           }
         });
-        console.log('[EventMap] Click handler attached');
+        console.log('[EventMap] Click handler attached successfully');
       } else {
         console.log('[EventMap] Interactive is false, not attaching click handler');
+        // Remove click handler if it was previously attached
+        map.off('click');
       }
     } else {
       console.log('[EventMap] Skipping map creation - mapRef.current:', !!mapRef.current, 'mapInstanceRef.current:', !!mapInstanceRef.current);
+    }
+
+    // Update click handler when interactive or onLocationSelect changes
+    if (mapInstanceRef.current && interactive && onLocationSelect) {
+      const map = mapInstanceRef.current;
+      // Remove any existing click handlers
+      map.off('click');
+      // Add new click handler
+      console.log('[EventMap] Re-attaching click handler for interactive mode');
+      map.on('click', (e) => {
+        console.log('[EventMap] MAP CLICKED (updated handler)!', e.latlng);
+        onLocationSelect(e.latlng);
+      });
     }
 
     return () => {
