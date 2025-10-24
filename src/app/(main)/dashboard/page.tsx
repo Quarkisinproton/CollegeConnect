@@ -9,7 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
 import { format } from "date-fns";
 import type { CampusEvent } from "@/types";
+import { productionConfig } from "@/config/production";
+
 type DisplayEvent = Omit<CampusEvent, 'dateTime'> & { dateTime: Date };
+
+const BACKEND_BASE = process.env.NODE_ENV === 'production' 
+  ? productionConfig.backendUrl 
+  : (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8081');
 
 function EventList() {
   const { user } = useUser();
@@ -58,7 +64,7 @@ function EventList() {
         // ignore
       }
 
-      fetch('/api/events', { method: 'GET', headers })
+      fetch(`${BACKEND_BASE}/api/events`, { method: 'GET', headers })
         .then(async (res) => {
           if (!res.ok) {
             const txt = await res.text();
@@ -110,7 +116,7 @@ function EventList() {
       }
   // In local emulator mode the backend allows passing uid explicitly
   // so that we can filter without requiring Firebase Admin token verification.
-  fetch(`/api/events?owner=true&uid=${user.uid}`, { method: 'GET', headers })
+  fetch(`${BACKEND_BASE}/api/events?owner=true&uid=${user.uid}`, { method: 'GET', headers })
       .then(async (res) => {
         if (!res.ok) {
           const txt = await res.text();

@@ -23,6 +23,11 @@ import { Calendar, Clock, MapPin, Navigation, User } from "lucide-react";
 import { format } from "date-fns";
 import type { CampusEvent } from "@/types";
 import { useToast } from "@/hooks/use-toast";
+import { productionConfig } from "@/config/production";
+
+const BACKEND_BASE = process.env.NODE_ENV === 'production' 
+  ? productionConfig.backendUrl 
+  : (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8081');
 
 const EventMap = dynamic(() => import('@/components/EventMap'), {
   ssr: false,
@@ -52,7 +57,7 @@ export default function EventDetailsPage() {
 
     console.log(`LOG: Fetching event with id: ${id} from backend API`);
     
-    fetch(`/api/events/${id}`)
+    fetch(`${BACKEND_BASE}/api/events/${id}`)
       .then(async (res) => {
         if (!res.ok) {
           if (res.status === 404) {

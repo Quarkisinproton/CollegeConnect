@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader } from "@/components/ui/loader";
 import { Building, User, Users } from "lucide-react";
 import type { CampusConnectUser } from "@/types";
+import { productionConfig } from "@/config/production";
 
 type PredefinedUser = Omit<CampusConnectUser, 'createdAt' | 'uid' | 'email'>;
 
@@ -55,7 +56,9 @@ function LoginPageContent() {
                 createdAt: new Date().toISOString(),
             };
 
-            const BACKEND_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '/api';
+            const BACKEND_BASE = process.env.NODE_ENV === 'production' 
+                ? productionConfig.backendUrl 
+                : (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8081');
             const url = `${BACKEND_BASE}/users/${user.uid}`;
 
             console.log('Saving user profile to:', url, userData);
