@@ -9,8 +9,10 @@ import com.google.firebase.cloud.FirestoreClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 @Configuration
 public class FirestoreConfig {
@@ -32,7 +34,21 @@ public class FirestoreConfig {
             return options.getService();
         }
 
-        // Prefer GOOGLE_APPLICATION_CREDENTIALS env var in production.
+        // Check if credentials are provided as JSON string in environment variable (for Render.com)
+        String credentialsJson = System.getenv("FIREBASE_CREDENTIALS");
+        if (credentialsJson != null && !credentialsJson.isBlank()) {
+            try (InputStream serviceAccount = new ByteArrayInputStream(credentialsJson.getBytes(StandardCharsets.UTF_8))) {
+                FirebaseOptions options = FirebaseOptions.builder()
+                        .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                        .build();
+                if (FirebaseApp.getApps().isEmpty()) {
+                    FirebaseApp.initializeApp(options);
+                }
+            }
+            return FirestoreClient.getFirestore();
+        }
+
+        // Prefer GOOGLE_APPLICATION_CREDENTIALS env var (file path) in production.
         String serviceAccountPath = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
 
         if (serviceAccountPath != null && !serviceAccountPath.isBlank()) {
