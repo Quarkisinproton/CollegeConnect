@@ -15,17 +15,17 @@ import type { CampusConnectUser } from "@/types";
 type PredefinedUser = Omit<CampusConnectUser, 'createdAt' | 'uid' | 'email'>;
 
 const students: PredefinedUser[] = [
-    { displayName: "Alex Johnson", role: "student" },
-    { displayName: "Brenda Smith", role: "student" },
-    { displayName: "Charlie Brown", role: "student" },
-    { displayName: "Diana Prince", role: "student" },
+    { displayName: "Stud1", role: "student" },
+    { displayName: "Stud2", role: "student" },
+    { displayName: "Stud3", role: "student" },
+    { displayName: "Stud4", role: "student" },
 ];
 
 const presidents: PredefinedUser[] = [
-    { displayName: "Edward King", role: "president" },
-    { displayName: "Fiona Queen", role: "president" },
-    { displayName: "George Lord", role: "president" },
-    { displayName: "Helen Duke", role: "president" },
+    { displayName: "Club1", role: "president" },
+    { displayName: "Club2", role: "president" },
+    { displayName: "Club3", role: "president" },
+    { displayName: "Club4", role: "president" },
 ]
 
 export default function LoginPage() {
