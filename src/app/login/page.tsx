@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, initiateAnonymousSignIn, useFirestore } from "@/firebase";
 import { signOut } from "firebase/auth";
@@ -28,7 +28,7 @@ const presidents: PredefinedUser[] = [
     { displayName: "Club4", role: "president" },
 ]
 
-export default function LoginPage() {
+function LoginPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const auth = useAuth();
@@ -162,5 +162,13 @@ export default function LoginPage() {
                 </CardFooter>
             </Card>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={<div className="flex min-h-screen w-full items-center justify-center"><Loader /></div>}>
+            <LoginPageContent />
+        </Suspense>
     );
 }
