@@ -37,12 +37,10 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
         }
         // Allow public access to health endpoint and static assets
         if (path.equals("/health") || path.equals("/healthz") || path.equals("/")) return true;
-        // Local-dev convenience: allow unauthenticated access to user profile endpoints.
-        // - PUT /api/users/{uid}: used by the login page to upsert the selected demo profile
-        // - GET /api/users/{uid}: used by the client to fetch the profile after sign-in
-        // In production you should require an ID token, but for emulator-based development we
-        // keep these open to avoid coupling with Firebase Admin configuration.
-    if (path.startsWith("/api/users")) {
+        
+        // Allow unauthenticated access to user and event endpoints for demo purposes
+        // In production, you should require proper authentication
+        if (path.startsWith("/api/users") || path.startsWith("/api/events")) {
             return true;
         }
 
