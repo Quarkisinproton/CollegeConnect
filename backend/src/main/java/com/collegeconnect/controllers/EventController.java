@@ -107,7 +107,10 @@ public class EventController {
             // For demo purposes, allow uid to be passed as parameter
             // In production, you'd use currentUser.getUid() from the auth token
             String uid = uidParam != null ? uidParam : currentUser.getUid();
-            if (uid == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "authentication required"));
+            if (uid == null) {
+                // Demo-friendly behavior: no uid -> return empty list instead of 401
+                return ResponseEntity.ok(List.of());
+            }
 
             ApiFuture<QuerySnapshot> future = firestore.collection("events")
                     .whereEqualTo("createdBy", uid)
