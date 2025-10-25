@@ -12,7 +12,10 @@ export const productionConfig = {
     messagingSenderId: "493519766207",
     appId: "1:493519766207:web:7ab5b4941abe1fbff83c0a"
   },
-  backendUrl: "https://collegeconnect-backend-htrb.onrender.com"
+  // Use local backend for development, production URL for deployed version
+  backendUrl: typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+    ? "http://localhost:8081" 
+    : "https://collegeconnect-backend-htrb.onrender.com"
 };
 
 // Debug: Log config in production to verify it's being loaded (remove after fixing)
