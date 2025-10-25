@@ -14,3 +14,13 @@ export const productionConfig = {
   },
   backendUrl: "https://collegeconnect-backend-htrb.onrender.com"
 };
+
+// Debug: Log config in production to verify it's being loaded (remove after fixing)
+if (typeof window !== 'undefined') {
+  console.log('[ProductionConfig] Firebase config loaded:', {
+    apiKey: productionConfig.firebaseConfig.apiKey.substring(0, 10) + '...',
+    authDomain: productionConfig.firebaseConfig.authDomain,
+    projectId: productionConfig.firebaseConfig.projectId,
+    appId: productionConfig.firebaseConfig.appId.substring(0, 20) + '...'
+  });
+}
