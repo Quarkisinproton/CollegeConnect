@@ -93,7 +93,6 @@ export default function EventDetailsPage() {
   const [showRoute, setShowRoute] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
-  const [locationDebugInfo, setLocationDebugInfo] = useState<string>("");
   const initialLoadComplete = useRef(false);
   const watchIdRef = useRef<number | null>(null);
 
@@ -169,17 +168,6 @@ export default function EventDetailsPage() {
     // Use watchPosition for continuous updates to get the most accurate location
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
-        const debugInfo = `📍 Position Update:
-• Lat: ${position.coords.latitude.toFixed(6)}
-• Lng: ${position.coords.longitude.toFixed(6)}
-• Accuracy: ${Math.round(position.coords.accuracy)}m
-• Altitude: ${position.coords.altitude ?? 'N/A'}
-• Speed: ${position.coords.speed ?? 'N/A'}
-• Timestamp: ${new Date(position.timestamp).toLocaleString()}
-• Age: ${Math.round((Date.now() - position.timestamp) / 1000)}s ago`;
-        
-        setLocationDebugInfo(debugInfo);
-        
         console.log("LOG: Geolocation success.", {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
@@ -245,10 +233,6 @@ export default function EventDetailsPage() {
     console.log("LOG: Manual location set:", location);
     setUserLocation(location);
     setShowRoute(true);
-    setLocationDebugInfo(`📍 Manual Location Set:
-• Lat: ${location.lat.toFixed(6)}
-• Lng: ${location.lng.toFixed(6)}
-• Source: Manual selection on map`);
     toast({ title: "Start Location Set", description: "Route calculated from selected location." });
   };
 
@@ -320,23 +304,6 @@ export default function EventDetailsPage() {
                   {isNavigating ? <Loader className="mr-2 h-4 w-4" /> : <Navigation className="mr-2 h-4 w-4" />}
                   {showRoute ? "Recalculate Route" : "Navigate to Event"}
               </Button>
-              
-              {/* Debug Info Panel */}
-              {locationDebugInfo && (
-                <Card className="bg-muted/50">
-                  <CardHeader>
-                    <CardTitle className="text-sm">Location Debug Info</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <pre className="text-xs whitespace-pre-wrap font-mono">{locationDebugInfo}</pre>
-                    {userLocation && (
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        Current: {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
           </div>
           <div className="lg:col-span-3 h-[400px] lg:h-auto rounded-lg overflow-hidden border">
               <EventMap 
