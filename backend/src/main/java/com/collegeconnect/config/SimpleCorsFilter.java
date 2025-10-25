@@ -15,6 +15,12 @@ import java.io.IOException;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class SimpleCorsFilter extends OncePerRequestFilter {
 
+    public SimpleCorsFilter() {
+        System.out.println("========================================");
+        System.out.println("SimpleCorsFilter LOADED AND ACTIVE");
+        System.out.println("========================================");
+    }
+
     private boolean isAllowedOrigin(String origin) {
         if (origin == null) return false;
         // Allow all vercel.app subdomains and localhost
@@ -27,19 +33,27 @@ public class SimpleCorsFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String origin = request.getHeader("Origin");
+        String method = request.getMethod();
+        String path = request.getRequestURI();
+        
+        System.out.println("SimpleCorsFilter: " + method + " " + path + " from origin: " + origin);
         
         // Always set CORS headers for allowed origins
         if (isAllowedOrigin(origin)) {
+            System.out.println("SimpleCorsFilter: Origin ALLOWED, setting CORS headers");
             response.setHeader("Access-Control-Allow-Origin", origin);
             response.setHeader("Access-Control-Allow-Credentials", "true");
             response.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS,PATCH");
             response.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With");
             response.setHeader("Access-Control-Max-Age", "3600");
+        } else {
+            System.out.println("SimpleCorsFilter: Origin NOT ALLOWED or null");
         }
         response.addHeader("Vary", "Origin");
 
         // Immediately return 200 for OPTIONS preflight
-        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+        if ("OPTIONS".equalsIgnoreCase(method)) {
+            System.out.println("SimpleCorsFilter: OPTIONS detected, returning 200 OK");
             response.setStatus(HttpServletResponse.SC_OK);
             response.getWriter().flush();
             return;
