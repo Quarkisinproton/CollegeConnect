@@ -18,7 +18,8 @@ public class SimpleCorsFilter extends OncePerRequestFilter {
     private boolean isAllowedOrigin(String origin) {
         if (origin == null) return false;
         // Allow all vercel.app subdomains and localhost
-        return origin.endsWith(".vercel.app") || origin.matches("^https?://(localhost|127.0.0.1)(:\\d+)?$");
+        return origin.startsWith("https://") && origin.contains(".vercel.app") 
+            || origin.matches("^https?://(localhost|127.0.0.1)(:\\d+)?$");
     }
 
     @Override
@@ -26,18 +27,21 @@ public class SimpleCorsFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String origin = request.getHeader("Origin");
+        
+        // Always set CORS headers for allowed origins
         if (isAllowedOrigin(origin)) {
             response.setHeader("Access-Control-Allow-Origin", origin);
-            response.setHeader("Vary", "Origin");
             response.setHeader("Access-Control-Allow-Credentials", "true");
             response.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS,PATCH");
-            response.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+            response.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With");
             response.setHeader("Access-Control-Max-Age", "3600");
         }
+        response.addHeader("Vary", "Origin");
 
-        // Short-circuit preflight
+        // Immediately return 200 for OPTIONS preflight
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             response.setStatus(HttpServletResponse.SC_OK);
+            response.getWriter().flush();
             return;
         }
 
