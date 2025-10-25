@@ -25,6 +25,10 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getRequestURI();
+        // Always allow CORS preflight requests to pass through
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
         // In local development (when Firestore emulator is used), allow all /api/* requests
         // to pass through without auth to simplify flows. The emulator env var is set by our
         // start scripts. Do NOT use this in production environments.
@@ -38,10 +42,7 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
         // - GET /api/users/{uid}: used by the client to fetch the profile after sign-in
         // In production you should require an ID token, but for emulator-based development we
         // keep these open to avoid coupling with Firebase Admin configuration.
-        if (path.startsWith("/api/users") && (
-                "PUT".equalsIgnoreCase(request.getMethod()) ||
-                "GET".equalsIgnoreCase(request.getMethod())
-        )) {
+    if (path.startsWith("/api/users")) {
             return true;
         }
 

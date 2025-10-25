@@ -38,6 +38,7 @@ public class CorsConfig {
         // Cache preflight requests for 1 hour
         config.setMaxAge(3600L);
         
+        // Apply CORS configuration to API endpoints
         source.registerCorsConfiguration("/**", config);
         return new CorsFilter(source);
     }
