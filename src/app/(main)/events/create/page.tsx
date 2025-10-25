@@ -9,6 +9,7 @@ import * as z from "zod";
 import { useRouter } from "next/navigation";
 declare const process: any;
 import L from "leaflet";
+import { productionConfig } from "@/config/production";
 
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { Button } from "@/components/ui/button";
@@ -78,8 +79,8 @@ export default function CreateEventPage() {
       createdAt: new Date().toISOString(),
     };
 
-    const BACKEND_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '/api';
-    const url = `${BACKEND_BASE}/events`;
+      const BACKEND_BASE = productionConfig.backendUrl;
+      const url = `${BACKEND_BASE}/api/events`;
 
     // Try to get an ID token from the user helper if available
     let idToken: string | null = null;

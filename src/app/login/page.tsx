@@ -58,7 +58,7 @@ function LoginPageContent() {
 
             // Always use production backend URL in deployed environment
             const BACKEND_BASE = productionConfig.backendUrl;
-            const url = `${BACKEND_BASE}/users/${user.uid}`;
+            const url = `${BACKEND_BASE}/api/users/${user.uid}`;
 
             console.log('[Login] Backend URL:', BACKEND_BASE);
             console.log('[Login] Saving user profile to:', url, userData);
