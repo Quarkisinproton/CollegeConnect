@@ -102,11 +102,11 @@ public class EventController {
             @RequestParam(name = "owner", required = false) Boolean owner,
             @RequestParam(name = "uid", required = false) String uidParam
     ) throws ExecutionException, InterruptedException {
-        // If owner=true, return events created by the authenticated user.
+        // If owner=true, return events created by the specified user
         if (owner != null && owner) {
-            // In local emulator mode, the auth filter may be bypassed. Allow caller to provide uid via query param.
-            String emulator = System.getenv("FIRESTORE_EMULATOR_HOST");
-            String uid = (emulator != null && !emulator.isBlank()) ? (uidParam != null ? uidParam : null) : currentUser.getUid();
+            // For demo purposes, allow uid to be passed as parameter
+            // In production, you'd use currentUser.getUid() from the auth token
+            String uid = uidParam != null ? uidParam : currentUser.getUid();
             if (uid == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "authentication required"));
 
             ApiFuture<QuerySnapshot> future = firestore.collection("events")
