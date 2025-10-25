@@ -56,20 +56,23 @@ function LoginPageContent() {
                 createdAt: new Date().toISOString(),
             };
 
-            const BACKEND_BASE = process.env.NODE_ENV === 'production' 
-                ? productionConfig.backendUrl 
-                : (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8081');
+            // Always use production backend URL in deployed environment
+            const BACKEND_BASE = productionConfig.backendUrl;
             const url = `${BACKEND_BASE}/users/${user.uid}`;
 
-            console.log('Saving user profile to:', url, userData);
+            console.log('[Login] Backend URL:', BACKEND_BASE);
+            console.log('[Login] Saving user profile to:', url, userData);
 
             // try to get id token if available
             let idToken = null;
             try {
                 // @ts-ignore
                 if (user?.getIdToken) idToken = await user.getIdToken();
-            } catch (e) {}
+            } catch (e) {
+                console.log('[Login] Could not get ID token:', e);
+            }
 
+            console.log('[Login] Sending PUT request to backend...');
             const res = await fetch(url, {
                 method: 'PUT',
                 headers: {
@@ -79,7 +82,7 @@ function LoginPageContent() {
                 body: JSON.stringify(userData),
             });
 
-            console.log('Backend response status:', res.status);
+            console.log('[Login] Backend response status:', res.status);
 
             if (!res.ok) {
                 const errorText = await res.text();
@@ -102,11 +105,20 @@ function LoginPageContent() {
             window.location.href = redirectPath;
 
         } catch (error: any) {
-            console.error("Authentication or Firestore operation failed:", error);
+            console.error("[Login] Authentication or backend operation failed:", error);
+            
+            // Better error messages
+            let errorMessage = "An unexpected error occurred during sign-in.";
+            if (error.message?.includes('Failed to fetch')) {
+                errorMessage = "Cannot connect to backend server. It may be starting up (takes ~1 minute on first request).";
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
             toast({
                 variant: "destructive",
                 title: "Login Failed",
-                description: error.message || "An unexpected error occurred during sign-in.",
+                description: errorMessage,
             });
             setIsLoading(null);
         }
