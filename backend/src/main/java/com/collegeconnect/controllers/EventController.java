@@ -112,9 +112,10 @@ public class EventController {
                 return ResponseEntity.ok(List.of());
             }
 
+            // NOTE: Avoid composite index requirement by not ordering in Firestore.
+            // We'll sort the results by dateTime in memory instead of using orderBy("dateTime").
             ApiFuture<QuerySnapshot> future = firestore.collection("events")
                     .whereEqualTo("createdBy", uid)
-                    .orderBy("dateTime")
                     .get();
 
             List<Map<String, Object>> results = new ArrayList<>();
@@ -122,16 +123,32 @@ public class EventController {
                 Map<String, Object> data = doc.getData();
                 Object dt = data.get("dateTime");
                 String dtIso = null;
+                long dtMs = Long.MAX_VALUE; // push nulls to the end
                 if (dt instanceof java.util.Date) {
-                    dtIso = java.time.Instant.ofEpochMilli(((java.util.Date) dt).getTime()).toString();
+                    dtMs = ((java.util.Date) dt).getTime();
+                    dtIso = java.time.Instant.ofEpochMilli(dtMs).toString();
                 } else if (dt != null) {
-                    dtIso = dt.toString();
+                    // Attempt to parse string value if present
+                    try {
+                        dtIso = dt.toString();
+                        dtMs = java.time.Instant.parse(dtIso).toEpochMilli();
+                    } catch (Exception ignore) {
+                        // leave dtMs as MAX_VALUE
+                    }
                 }
                 Map<String, Object> out = new HashMap<>(data);
                 out.put("id", doc.getId());
                 out.put("dateTime", dtIso);
+                out.put("_dtMs", dtMs); // temporary for sorting
                 results.add(out);
             }
+            // Sort ascending by date/time
+            results.sort((a, b) -> Long.compare(
+                    ((Number) a.getOrDefault("_dtMs", Long.MAX_VALUE)).longValue(),
+                    ((Number) b.getOrDefault("_dtMs", Long.MAX_VALUE)).longValue()
+            ));
+            // Remove the temp field
+            results.forEach(m -> m.remove("_dtMs"));
             return ResponseEntity.ok(results);
         }
 
