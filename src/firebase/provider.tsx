@@ -6,6 +6,7 @@ import { Firestore, doc, onSnapshot, getDoc, setDoc, serverTimestamp } from 'fir
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import type { CampusConnectUser } from '@/types';
+import { productionConfig } from '@/config/production';
 
 interface FirebaseProviderProps {
   children: ReactNode;
@@ -73,8 +74,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
           (async () => {
             try {
               const token = (firebaseUser as any).getIdToken ? await (firebaseUser as any).getIdToken() : null;
-              const backend = process.env.NEXT_PUBLIC_BACKEND_URL || '/api';
-              const res = await fetch(`${backend}/users/${firebaseUser.uid}`, {
+              const backend = productionConfig.backendUrl;
+              const res = await fetch(`${backend}/api/users/${firebaseUser.uid}`, {
                 headers: {
                   'Accept': 'application/json',
                   ...(token ? { Authorization: `Bearer ${token}` } : {}),
