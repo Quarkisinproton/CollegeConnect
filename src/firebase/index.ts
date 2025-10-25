@@ -16,13 +16,22 @@ export function initializeFirebase() {
     try {
       // Attempt to initialize via Firebase App Hosting environment variables
       firebaseApp = initializeApp();
+      console.log('[Firebase] Initialized via App Hosting environment');
     } catch (e) {
       // Only warn in production because it's normal to use the firebaseConfig to initialize
       // during development
       if (process.env.NODE_ENV === "production") {
         console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
       }
+      // Debug: Log the config being used (masked for security)
+      console.log('[Firebase] Using config:', {
+        apiKey: firebaseConfig.apiKey.substring(0, 10) + '...',
+        authDomain: firebaseConfig.authDomain,
+        projectId: firebaseConfig.projectId,
+        appId: firebaseConfig.appId.substring(0, 20) + '...'
+      });
       firebaseApp = initializeApp(firebaseConfig);
+      console.log('[Firebase] Initialized with hardcoded config');
     }
 
     return getSdks(firebaseApp);
