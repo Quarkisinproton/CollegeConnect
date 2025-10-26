@@ -3,7 +3,6 @@
 
 import { useEffect, useRef } from "react";
 import L from "leaflet";
-import "leaflet-routing-machine";
 
 // Fix for default icon issues with webpack
 import "leaflet/dist/leaflet.css";
@@ -23,7 +22,8 @@ interface EventMapProps {
   selectedLocation?: L.LatLng | null;
   eventLocation?: L.LatLng | null;
   userLocation?: L.LatLng | null;
-  showRoute?: boolean;
+  // Custom route path to render (polyline) from backend navigation service
+  routePath?: Array<{ lat: number; lng: number }> | null;
 }
 
 export default function EventMap({
@@ -32,15 +32,13 @@ export default function EventMap({
   selectedLocation,
   eventLocation,
   userLocation,
-  showRoute = false,
+  routePath = null,
 }: EventMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
-  const routingControlRef = useRef<L.Routing.Control | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const isUnmountingRef = useRef(false);
-  // Track the last waypoints we routed between to avoid unnecessary re-creations
-  const lastWaypointsRef = useRef<{ from: { lat: number; lng: number }; to: { lat: number; lng: number } } | null>(null);
+  const polylineRef = useRef<L.Polyline | null>(null);
 
   useEffect(() => {
     // Reset unmounting flag on mount
@@ -106,15 +104,10 @@ export default function EventMap({
 
       const map = mapInstanceRef.current;
       try {
-        // Proactively remove routing control first (some plugins expect a live map during cleanup)
-        if (map && routingControlRef.current) {
-          try {
-            map.removeControl(routingControlRef.current);
-          } catch (e) {
-            // swallow – best-effort cleanup
-          } finally {
-            routingControlRef.current = null;
-          }
+        // Remove polyline if exists
+        if (polylineRef.current) {
+          try { polylineRef.current.remove(); } catch {}
+          polylineRef.current = null;
         }
 
         // Remove markers
@@ -172,7 +165,7 @@ export default function EventMap({
 
 
   useEffect(() => {
-    console.log('[EventMap] Route effect - showRoute:', showRoute, 'userLocation:', userLocation, 'eventLocation:', eventLocation);
+    console.log('[EventMap] Route effect - routePath:', routePath?.length || 0);
     if (isUnmountingRef.current) {
       console.log('[EventMap] Route effect skipped: unmounting');
       return;
@@ -182,66 +175,24 @@ export default function EventMap({
       console.log('[EventMap] Route effect skipped: map not ready');
       return;
     }
-    
-    // If waypoints haven't changed and a routing control already exists, skip re-creating it
-    const currentWaypoints = (userLocation && eventLocation)
-      ? { from: { lat: userLocation.lat, lng: userLocation.lng }, to: { lat: eventLocation.lat, lng: eventLocation.lng } }
-      : null;
-
-    const epsilon = 1e-6; // avoid flapping on tiny float diffs
-    const sameAsLast = !!currentWaypoints && !!lastWaypointsRef.current &&
-      Math.abs(currentWaypoints.from.lat - lastWaypointsRef.current.from.lat) < epsilon &&
-      Math.abs(currentWaypoints.from.lng - lastWaypointsRef.current.from.lng) < epsilon &&
-      Math.abs(currentWaypoints.to.lat - lastWaypointsRef.current.to.lat) < epsilon &&
-      Math.abs(currentWaypoints.to.lng - lastWaypointsRef.current.to.lng) < epsilon;
-
-    if (sameAsLast && routingControlRef.current && showRoute) {
-      console.log('[EventMap] Waypoints unchanged; keeping existing routing control');
-      return;
+    // Remove existing polyline
+    if (polylineRef.current) {
+      try { polylineRef.current.remove(); } catch {}
+      polylineRef.current = null;
     }
 
-    // Remove existing routing control if it exists
-    if (routingControlRef.current) {
-        console.log('[EventMap] Removing existing routing control');
-        // Some routers finish asynchronously and try to clear lines after control removal,
-        // which can throw if the control's map is already nulled. Defer removal safely.
-        const ctrl = routingControlRef.current;
-        routingControlRef.current = null;
-        try {
-          // Best-effort: clear waypoints to cancel pending requests
-          (ctrl as any)?.setWaypoints?.([]);
-        } catch {}
-        setTimeout(() => {
-          try { map.removeControl(ctrl); console.log('[EventMap] Routing control removed'); } catch (e) { console.log('[EventMap] Error removing routing control', e); }
-        }, 0);
-    }
-
-    if (showRoute && userLocation && eventLocation) {
-    // Guard against the routing plugin not being available
-    if (!(L as any).Routing || !(L as any).Routing.control) { console.log('[EventMap] L.Routing not available'); return; }
-    console.log('[EventMap] Creating routing control with waypoints', { from: userLocation, to: eventLocation });
-    const routingControl = (L as any).Routing.control(({
-      waypoints: [
-        L.latLng(userLocation.lat, userLocation.lng),
-        L.latLng(eventLocation.lat, eventLocation.lng)
-      ],
-      routeWhileDragging: true,
-      show: false,
-      addWaypoints: false,
-      fitSelectedRoutes: true,
-      lineOptions: ({ styles: [{ color: '#4169E1', opacity: 0.8, weight: 6 }] } as any),
-      createMarker: function() { return null; }
-    } as any)).addTo(map);
-        routingControlRef.current = routingControl;
-        lastWaypointsRef.current = {
-          from: { lat: userLocation.lat, lng: userLocation.lng },
-          to: { lat: eventLocation.lat, lng: eventLocation.lng },
-        };
-        console.log('[EventMap] Routing control added');
+    if (routePath && routePath.length >= 2) {
+      const latlngs = routePath.map(p => L.latLng(p.lat, p.lng));
+      const poly = L.polyline(latlngs, { color: '#4169E1', opacity: 0.9, weight: 6 });
+      poly.addTo(map);
+      polylineRef.current = poly;
+      // Fit map to route
+      try { map.fitBounds(poly.getBounds(), { padding: [20, 20] } as any); } catch {}
+      console.log('[EventMap] Route polyline drawn, points:', routePath.length);
     } else {
-      console.log('[EventMap] Not creating route (conditions not met)');
+      console.log('[EventMap] routePath empty or invalid; nothing to draw');
     }
-  }, [showRoute, userLocation, eventLocation]);
+  }, [routePath]);
 
   return <div ref={mapRef} className="rounded-lg h-full w-full z-0" />;
 }

@@ -90,6 +90,7 @@ export default function EventDetailsPage() {
 
 
   const [userLocation, setUserLocation] = useState<L.LatLng | null>(null);
+  const [routePath, setRoutePath] = useState<Array<{lat:number; lng:number}> | null>(null);
   const [showRoute, setShowRoute] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
@@ -179,12 +180,8 @@ export default function EventDetailsPage() {
         // Update location
         const newLocation = L.latLng(position.coords.latitude, position.coords.longitude);
         setUserLocation(newLocation);
-        setShowRoute(true);
-        
-        toast({ 
-          title: "Location Updated", 
-          description: `Accuracy: ${Math.round(position.coords.accuracy)}m. Route calculated from your current location.` 
-        });
+        // Trigger route calculation
+        calculateRoute(newLocation, eventLocation).catch(() => {});
         
         setIsNavigating(false);
         
@@ -232,8 +229,45 @@ export default function EventDetailsPage() {
   const handleManualLocationSet = (location: L.LatLng) => {
     console.log("LOG: Manual location set:", location);
     setUserLocation(location);
-    setShowRoute(true);
-    toast({ title: "Start Location Set", description: "Route calculated from selected location." });
+    calculateRoute(location, eventLocation).catch(() => {});
+  };
+
+  const calculateRoute = async (start: L.LatLng, end: L.LatLng) => {
+    try {
+      setIsNavigating(true);
+      setShowRoute(true);
+      setRoutePath(null);
+      const res = await fetch(`${BACKEND_BASE}/api/navigation/route`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start: { lat: start.lat, lng: start.lng },
+          end: { lat: end.lat, lng: end.lng },
+          algorithm: 'FTD'
+        })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 400 && data?.code === 'OUTSIDE_CAMPUS') {
+          toast({ variant: 'destructive', title: 'Outside Campus', description: 'Navigation is only available within campus bounds.' });
+        } else if (res.status === 404) {
+          toast({ variant: 'destructive', title: 'No Route Found', description: 'No path found between your location and the event.' });
+        } else {
+          toast({ variant: 'destructive', title: 'Navigation Error', description: data?.error || 'Failed to calculate route.' });
+        }
+        setIsNavigating(false);
+        return;
+      }
+      const data = await res.json();
+      const path: Array<{lat:number; lng:number}> = (data?.path || []) as any;
+      setRoutePath(path);
+      toast({ title: 'Route Ready', description: `Distance ${(data?.distance/1000).toFixed(2)} km, ETA ${Math.round((data?.duration||0)/60)} min` });
+    } catch (e) {
+      console.error('LOG: calculateRoute error', e);
+      toast({ variant: 'destructive', title: 'Navigation Error', description: 'Could not calculate route.' });
+    } finally {
+      setIsNavigating(false);
+    }
   };
 
 
@@ -309,7 +343,7 @@ export default function EventDetailsPage() {
               <EventMap 
                 eventLocation={eventLocation} 
                 userLocation={userLocation} 
-                showRoute={showRoute}
+                routePath={routePath}
                 interactive={true}
                 onLocationSelect={handleManualLocationSet}
               />
