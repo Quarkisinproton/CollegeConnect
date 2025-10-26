@@ -12,13 +12,21 @@ import java.util.*;
  */
 public class AStarAlgorithm implements PathfindingAlgorithm {
 
+    private int nodesExplored = 0;
+    private long computeTimeMs = 0;
+
     @Override
     public Route findRoute(Graph graph, double startLat, double startLng, double endLat, double endLng) {
+        long startTime = System.currentTimeMillis();
+        nodesExplored = 0;
         graph.resetNodes();
 
         Node start = graph.findClosestNode(startLat, startLng);
         Node goal = graph.findClosestNode(endLat, endLng);
-        if (start == null || goal == null) return new Route(Collections.emptyList(), 0, 0, getName());
+        if (start == null || goal == null) {
+            computeTimeMs = System.currentTimeMillis() - startTime;
+            return new Route(Collections.emptyList(), 0, 0, getName() + " (no path, " + computeTimeMs + "ms)");
+        }
 
         Map<Node, Double> gScore = new HashMap<>();
         Map<Node, Node> cameFrom = new HashMap<>();
@@ -37,7 +45,9 @@ public class AStarAlgorithm implements PathfindingAlgorithm {
 
         while (!open.isEmpty()) {
             Node current = open.poll();
+            nodesExplored++;
             if (current.equals(goal)) {
+                computeTimeMs = System.currentTimeMillis() - startTime;
                 return buildRoute(cameFrom, current, start, goal);
             }
             current.setVisited(true);
@@ -58,7 +68,8 @@ public class AStarAlgorithm implements PathfindingAlgorithm {
             }
         }
 
-        return new Route(Collections.emptyList(), 0, 0, getName());
+        computeTimeMs = System.currentTimeMillis() - startTime;
+        return new Route(Collections.emptyList(), 0, 0, getName() + " (no path, " + computeTimeMs + "ms)");
     }
 
     private double heuristic(Node a, Node b) {
@@ -76,7 +87,7 @@ public class AStarAlgorithm implements PathfindingAlgorithm {
         double distance = pathDistance(path);
         double walkingSpeed = 1.4; // m/s
         double duration = distance / walkingSpeed;
-        return new Route(path, distance, duration, getName());
+        return new Route(path, distance, duration, getName() + " (" + nodesExplored + " nodes, " + computeTimeMs + "ms)");
     }
 
     private double pathDistance(List<Node> path) {

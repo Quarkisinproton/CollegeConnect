@@ -1,6 +1,7 @@
 package com.collegeconnect.navigation.service;
 
 import com.collegeconnect.navigation.algorithm.AStarAlgorithm;
+import com.collegeconnect.navigation.algorithm.BidirectionalAStarAlgorithm;
 import com.collegeconnect.navigation.algorithm.PathfindingAlgorithm;
 import com.collegeconnect.navigation.model.Graph;
 import com.collegeconnect.navigation.model.Route;
@@ -18,7 +19,9 @@ public class NavigationService {
     private Graph graph;
     private double minLat, minLng, maxLat, maxLng;
 
-    private final PathfindingAlgorithm defaultAlgo = new AStarAlgorithm(); // Placeholder for 'faster than dijkstra'
+    private final PathfindingAlgorithm astarAlgo = new AStarAlgorithm();
+    private final PathfindingAlgorithm bidirectionalAlgo = new BidirectionalAStarAlgorithm();
+    private final PathfindingAlgorithm defaultAlgo = bidirectionalAlgo; // Bidirectional is faster
 
     @PostConstruct
     public void init() {
@@ -32,6 +35,14 @@ public class NavigationService {
                 this.minLng = res.minLng;
                 this.maxLat = res.maxLat;
                 this.maxLng = res.maxLng;
+                
+                System.out.println("✅ Campus navigation graph loaded:");
+                System.out.println("   Nodes: " + graph.getNodeCount());
+                System.out.println("   Edges: " + graph.getEdgeCount());
+                System.out.println("   Bounds: [" + String.format("%.6f", minLat) + ", " + 
+                                   String.format("%.6f", minLng) + "] to [" + 
+                                   String.format("%.6f", maxLat) + ", " + 
+                                   String.format("%.6f", maxLng) + "]");
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to load campus OSM graph from resources", e);
@@ -59,10 +70,13 @@ public class NavigationService {
         if (name == null) return defaultAlgo;
         String key = name.trim().toUpperCase(Locale.ROOT);
         switch (key) {
-            case "FTD": // Faster Than Dijkstra (from PDF) – currently mapped to A*
+            case "FTD": // Faster Than Dijkstra - Bidirectional A*
+            case "BIDIRECTIONAL":
+            case "BIA":
+                return bidirectionalAlgo;
             case "ASTAR":
-                return defaultAlgo;
-            // case "DIJKSTRA": return new DijkstraAlgorithm(); // if needed later
+            case "A*":
+                return astarAlgo;
             default:
                 return defaultAlgo;
         }

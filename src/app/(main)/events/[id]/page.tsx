@@ -237,34 +237,73 @@ export default function EventDetailsPage() {
       setIsNavigating(true);
       setShowRoute(true);
       setRoutePath(null);
+      
       const res = await fetch(`${BACKEND_BASE}/api/navigation/route`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           start: { lat: start.lat, lng: start.lng },
           end: { lat: end.lat, lng: end.lng },
-          algorithm: 'FTD'
+          algorithm: 'FTD'  // Faster Than Dijkstra (Bidirectional A*)
         })
       });
+      
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         if (res.status === 400 && data?.code === 'OUTSIDE_CAMPUS') {
-          toast({ variant: 'destructive', title: 'Outside Campus', description: 'Navigation is only available within campus bounds.' });
+          toast({ 
+            variant: 'destructive', 
+            title: '📍 Outside Campus Bounds', 
+            description: 'Navigation is only available within campus. Please ensure you are on campus to use this feature.' 
+          });
         } else if (res.status === 404) {
-          toast({ variant: 'destructive', title: 'No Route Found', description: 'No path found between your location and the event.' });
+          toast({ 
+            variant: 'destructive', 
+            title: 'No Route Found', 
+            description: 'Could not find a walking path between your location and the event. The locations may not be connected.' 
+          });
         } else {
-          toast({ variant: 'destructive', title: 'Navigation Error', description: data?.error || 'Failed to calculate route.' });
+          toast({ 
+            variant: 'destructive', 
+            title: 'Navigation Error', 
+            description: data?.error || 'Failed to calculate route. Please try again.' 
+          });
         }
         setIsNavigating(false);
         return;
       }
+      
       const data = await res.json();
       const path: Array<{lat:number; lng:number}> = (data?.path || []) as any;
+      
+      if (path.length === 0) {
+        toast({ 
+          variant: 'destructive', 
+          title: 'No Path Available', 
+          description: 'Could not generate a route. Please check your location.' 
+        });
+        setIsNavigating(false);
+        return;
+      }
+      
       setRoutePath(path);
-      toast({ title: 'Route Ready', description: `Distance ${(data?.distance/1000).toFixed(2)} km, ETA ${Math.round((data?.duration||0)/60)} min` });
+      
+      const distanceKm = (data?.distance || 0) / 1000;
+      const durationMin = Math.round((data?.duration || 0) / 60);
+      const algo = data?.algorithm || 'Unknown';
+      const metrics = data?.metrics || '';
+      
+      toast({ 
+        title: '🗺️ Route Ready', 
+        description: `${distanceKm.toFixed(2)} km · ${durationMin} min walk · ${algo}${metrics}` 
+      });
     } catch (e) {
       console.error('LOG: calculateRoute error', e);
-      toast({ variant: 'destructive', title: 'Navigation Error', description: 'Could not calculate route.' });
+      toast({ 
+        variant: 'destructive', 
+        title: 'Connection Error', 
+        description: 'Could not reach the navigation service. Please check your connection.' 
+      });
     } finally {
       setIsNavigating(false);
     }
@@ -335,8 +374,17 @@ export default function EventDetailsPage() {
               </Card>
 
               <Button onClick={handleNavigateClick} disabled={isNavigating} className="w-full">
-                  {isNavigating ? <Loader className="mr-2 h-4 w-4" /> : <Navigation className="mr-2 h-4 w-4" />}
-                  {showRoute ? "Recalculate Route" : "Navigate to Event"}
+                  {isNavigating ? (
+                    <>
+                      <Loader className="mr-2 h-4 w-4 animate-spin" />
+                      Calculating Route...
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="mr-2 h-4 w-4" />
+                      {showRoute ? "Recalculate Route" : "Navigate to Event"}
+                    </>
+                  )}
               </Button>
           </div>
           <div className="lg:col-span-3 h-[400px] lg:h-auto rounded-lg overflow-hidden border">

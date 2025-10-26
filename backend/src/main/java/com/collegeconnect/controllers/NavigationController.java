@@ -26,7 +26,13 @@ public class NavigationController {
     public record LatLng(double lat, double lng) {}
     public record RouteRequest(LatLng start, LatLng end, String algorithm) {}
     public record RoutePoint(double lat, double lng) {}
-    public record RouteResponse(double distance, double duration, String algorithm, List<RoutePoint> path) {}
+    public record RouteResponse(
+        double distance, 
+        double duration, 
+        String algorithm, 
+        List<RoutePoint> path,
+        String metrics  // Algorithm performance info
+    ) {}
 
     @PostMapping("/route")
     public ResponseEntity<?> route(@RequestBody RouteRequest request) {
@@ -57,6 +63,21 @@ public class NavigationController {
         List<RoutePoint> pts = route.getPath().stream()
                 .map(n -> new RoutePoint(n.getLatitude(), n.getLongitude()))
                 .toList();
-        return ResponseEntity.ok(new RouteResponse(route.getTotalDistance(), route.getEstimatedDuration(), route.getAlgorithm(), pts));
+        
+        // Extract metrics from algorithm name (format: "BiA* (123 nodes, 45ms)")
+        String metrics = route.getAlgorithm().contains("(") 
+            ? route.getAlgorithm().substring(route.getAlgorithm().indexOf("("))
+            : "";
+        String algoName = route.getAlgorithm().contains("(")
+            ? route.getAlgorithm().substring(0, route.getAlgorithm().indexOf("(")).trim()
+            : route.getAlgorithm();
+            
+        return ResponseEntity.ok(new RouteResponse(
+            route.getTotalDistance(), 
+            route.getEstimatedDuration(), 
+            algoName, 
+            pts,
+            metrics
+        ));
     }
 }
