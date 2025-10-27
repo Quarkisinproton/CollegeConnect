@@ -25,6 +25,17 @@ public class BidirectionalAStarAlgorithm implements PathfindingAlgorithm {
         Node start = graph.findClosestNode(startLat, startLng);
         Node goal = graph.findClosestNode(endLat, endLng);
         
+            System.out.println("[BiA*] Start: (" + startLat + "," + startLng + ") → closest node: " + 
+                (start != null ? start.getId() + " at (" + start.getLatitude() + "," + start.getLongitude() + ")" : "NULL"));
+            System.out.println("[BiA*] Goal: (" + endLat + "," + endLng + ") → closest node: " + 
+                (goal != null ? goal.getId() + " at (" + goal.getLatitude() + "," + goal.getLongitude() + ")" : "NULL"));
+            if (start != null) {
+                System.out.println("[BiA*] Start node has " + graph.getNeighbors(start).size() + " neighbors");
+            }
+            if (goal != null) {
+                System.out.println("[BiA*] Goal node has " + graph.getNeighbors(goal).size() + " neighbors");
+            }
+        
         if (start == null || goal == null) {
             computeTimeMs = System.currentTimeMillis() - startTime;
             return createEmptyRoute();

@@ -18,11 +18,10 @@ import java.util.*;
  */
 public class OSMGraphLoader {
 
-    private static final Set<String> WALKABLE_HIGHWAYS = new HashSet<>(Arrays.asList(
-            "footway", "path", "pedestrian", "living_street", "residential", "service", "track"
-    ));
-
-    public static class Result {
+    // Exclude only fast/inaccessible roads; accept everything else for maximum campus connectivity
+    private static final Set<String> EXCLUDED_HIGHWAYS = new HashSet<>(Arrays.asList(
+            "motorway", "motorway_link", "trunk", "trunk_link"
+    ));    public static class Result {
         public final Graph graph;
         public final double minLat, minLng, maxLat, maxLng;
 
@@ -100,7 +99,10 @@ public class OSMGraphLoader {
 
         // Connect ways that are walkable
         for (Way way : ways) {
-            if (way.highway == null || !WALKABLE_HIGHWAYS.contains(way.highway)) continue;
+            if (way.highway == null) continue;
+            // Accept all highway types except fast roads (motorway/trunk)
+            if (EXCLUDED_HIGHWAYS.contains(way.highway)) continue;
+            
             List<Long> refs = way.nodeRefs;
             for (int i = 0; i < refs.size() - 1; i++) {
                 Node a = nodeMap.get(refs.get(i));
@@ -111,8 +113,115 @@ public class OSMGraphLoader {
             }
         }
 
+            // Stitch near-miss endpoints: connect way endpoints within 50m to bridge graph fragmentation
+            System.out.println("🔧 DEBUG: About to call stitchCloseEndpoints...");
+            stitchCloseEndpoints(graph, nodeMap, ways, 50.0);
+            System.out.println("🔧 DEBUG: stitchCloseEndpoints completed");
+        
+            // Stitch isolated nodes: connect nodes with 0-1 neighbors to nearest node within 50m
+            System.out.println("🔧 DEBUG: About to call stitchIsolatedNodes...");
+            stitchIsolatedNodes(graph, 50.0);
+            System.out.println("🔧 DEBUG: stitchIsolatedNodes completed");
+
         return new Result(graph, minLat, minLng, maxLat, maxLng);
     }
+
+    /**
+     * Find way endpoints that are close but not connected, and bridge them.
+     * This fixes common OSM data gaps where roads/paths nearly touch but aren't formally connected.
+     */
+    private void stitchCloseEndpoints(Graph graph, Map<Long, Node> nodeMap, List<Way> ways, double maxDistanceMeters) {
+        System.out.println("🔧 DEBUG: ENTERED stitchCloseEndpoints method");
+        // Collect all way endpoints (first and last node of each way with a highway tag)
+        List<Node> endpoints = new ArrayList<>();
+        for (Way way : ways) {
+            if (way.highway == null || EXCLUDED_HIGHWAYS.contains(way.highway)) continue;
+            if (way.nodeRefs.isEmpty()) continue;
+            
+            Long firstRef = way.nodeRefs.get(0);
+            Long lastRef = way.nodeRefs.get(way.nodeRefs.size() - 1);
+            
+            Node firstNode = nodeMap.get(firstRef);
+            Node lastNode = nodeMap.get(lastRef);
+            
+            if (firstNode != null && !endpoints.contains(firstNode)) endpoints.add(firstNode);
+            if (lastNode != null && !endpoints.contains(lastNode)) endpoints.add(lastNode);
+        }
+        
+        int bridgesAdded = 0;
+        // For each endpoint, find other endpoints within maxDistance and connect them
+        for (int i = 0; i < endpoints.size(); i++) {
+            Node a = endpoints.get(i);
+            for (int j = i + 1; j < endpoints.size(); j++) {
+                Node b = endpoints.get(j);
+                
+                // Skip if already directly connected
+                boolean alreadyConnected = graph.getNeighbors(a).stream()
+                        .anyMatch(edge -> edge.getTo().equals(b));
+                if (alreadyConnected) continue;
+                
+                double dist = haversine(a.getLatitude(), a.getLongitude(), b.getLatitude(), b.getLongitude());
+                if (dist <= maxDistanceMeters) {
+                    graph.addEdge(new Edge(a, b, dist, true));
+                    bridgesAdded++;
+                }
+            }
+        }
+        
+        if (bridgesAdded > 0) {
+                System.out.println("   Stitched way endpoints: " + bridgesAdded + " bridges (<" + maxDistanceMeters + "m)");
+        }
+    }
+
+        /**
+         * Connect isolated nodes (with 0 or 1 neighbors) to the nearest node within maxDistance.
+         * This fixes nodes that are part of very short ways or disconnected from the main graph.
+         */
+        private void stitchIsolatedNodes(Graph graph, double maxDistanceMeters) {
+            System.out.println("🔧 DEBUG: ENTERED stitchIsolatedNodes method");
+            int bridgesAdded = 0;
+            List<Node> allNodes = new ArrayList<>(graph.getAllNodes());
+        
+            for (Node node : allNodes) {
+                // Only fix nodes with 0 or 1 neighbor (isolated or weakly connected)
+                int neighborCount = graph.getNeighbors(node).size();
+                if (neighborCount > 1) continue;
+            
+                // Find the closest node within maxDistance
+                Node closest = null;
+                double minDist = Double.MAX_VALUE;
+            
+                for (Node candidate : allNodes) {
+                    if (candidate.equals(node)) continue;
+                
+                    double dist = haversine(
+                        node.getLatitude(), node.getLongitude(),
+                        candidate.getLatitude(), candidate.getLongitude()
+                    );
+                
+                    if (dist < minDist && dist <= maxDistanceMeters) {
+                        minDist = dist;
+                        closest = candidate;
+                    }
+                }
+            
+                // Add bridge edge if we found a close node and they're not already connected
+                if (closest != null) {
+                    final Node closestFinal = closest;
+                    boolean alreadyConnected = graph.getNeighbors(node).stream()
+                            .anyMatch(edge -> edge.getTo().equals(closestFinal));
+                
+                    if (!alreadyConnected) {
+                        graph.addEdge(new Edge(node, closestFinal, minDist, true));
+                        bridgesAdded++;
+                    }
+                }
+            }
+        
+            if (bridgesAdded > 0) {
+                System.out.println("   Connected isolated nodes: " + bridgesAdded + " bridges (<" + maxDistanceMeters + "m)");
+            }
+        }
 
     private static class Way {
         List<Long> nodeRefs = new ArrayList<>();

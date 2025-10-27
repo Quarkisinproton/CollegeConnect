@@ -66,6 +66,64 @@ public class NavigationService {
         return algo.findRoute(graph, startLat, startLng, endLat, endLng);
     }
 
+    /**
+     * Attempt routing with smart snapping: if no direct path, snap start and/or end
+     * to nearest graph nodes and retry. Returns RouteWithSnaps containing the route
+     * plus metadata about which points were snapped.
+     */
+    public RouteWithSnaps routeWithSmartSnapping(double startLat, double startLng, double endLat, double endLng) {
+        // First attempt without snapping
+        Route first = defaultAlgo.findRoute(graph, startLat, startLng, endLat, endLng);
+        if (!first.getPath().isEmpty()) {
+            return new RouteWithSnaps(first, null, null);
+        }
+
+        // Find nearest nodes for start and end
+        com.collegeconnect.navigation.model.Node startNode = graph.findClosestNode(startLat, startLng);
+        com.collegeconnect.navigation.model.Node endNode = graph.findClosestNode(endLat, endLng);
+        
+        if (startNode == null || endNode == null) {
+            return new RouteWithSnaps(first, null, null);
+        }
+
+        // Try with both snapped
+        double snappedStartLat = startNode.getLatitude();
+        double snappedStartLng = startNode.getLongitude();
+        double snappedEndLat = endNode.getLatitude();
+        double snappedEndLng = endNode.getLongitude();
+
+        Route second = defaultAlgo.findRoute(graph, snappedStartLat, snappedStartLng, snappedEndLat, snappedEndLng);
+        
+        if (!second.getPath().isEmpty()) {
+            // Annotate algorithm to show snapping occurred
+            String alg = second.getAlgorithm();
+            try {
+                java.lang.reflect.Field f = second.getClass().getDeclaredField("algorithm");
+                f.setAccessible(true);
+                f.set(second, alg + " (snapped)");
+            } catch (Exception ignore) {}
+            
+            // Build snap info
+            SnapPoint startSnap = new SnapPoint(startLat, startLng, snappedStartLat, snappedStartLng);
+            SnapPoint endSnap = new SnapPoint(endLat, endLng, snappedEndLat, snappedEndLng);
+            return new RouteWithSnaps(second, startSnap, endSnap);
+        }
+        
+        return new RouteWithSnaps(second, null, null);
+    }
+
+    public record SnapPoint(double originalLat, double originalLng, double snappedLat, double snappedLng) {}
+    public record RouteWithSnaps(Route route, SnapPoint startSnap, SnapPoint endSnap) {}
+    /**
+     * Run both A* and BiA* algorithms to compare performance.
+     * Returns both routes with their metrics for side-by-side comparison.
+     */
+    public RouteComparison routeComparison(double startLat, double startLng, double endLat, double endLng) {
+        Route astarRoute = astarAlgo.findRoute(graph, startLat, startLng, endLat, endLng);
+        Route biaRoute = bidirectionalAlgo.findRoute(graph, startLat, startLng, endLat, endLng);
+        return new RouteComparison(astarRoute, biaRoute);
+    }
+
     private PathfindingAlgorithm selectAlgorithm(String name) {
         if (name == null) return defaultAlgo;
         String key = name.trim().toUpperCase(Locale.ROOT);
@@ -83,4 +141,5 @@ public class NavigationService {
     }
 
     public record Bounds(double minLat, double minLng, double maxLat, double maxLng) {}
+    public record RouteComparison(Route astar, Route bidirectional) {}
 }
