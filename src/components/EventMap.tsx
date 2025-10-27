@@ -50,10 +50,7 @@ export default function EventMap({
     // Reset unmounting flag on mount
     isUnmountingRef.current = false;
     
-    console.log('[EventMap] Effect running - interactive:', interactive, 'onLocationSelect:', !!onLocationSelect, 'mapInstanceRef.current:', !!mapInstanceRef.current);
-    
     if (mapRef.current && !mapInstanceRef.current) {
-      console.log('[EventMap] Creating new map instance');
       const center = eventLocation || selectedLocation || L.latLng(defaultPosition[0], defaultPosition[1]);
       
       const map = L.map(mapRef.current, {
@@ -71,24 +68,15 @@ export default function EventMap({
       map.setMaxBounds([[17.7789300, 83.3724800], [17.7872100, 83.3817700]]);
 
       if (interactive) {
-        console.log('[EventMap] Attaching click handler to map');
         map.on('click', (e) => {
-          console.log('[EventMap] MAP CLICKED!', e.latlng);
           if (onLocationSelect) {
-            console.log('[EventMap] Calling onLocationSelect with:', e.latlng);
             onLocationSelect(e.latlng);
-          } else {
-            console.log('[EventMap] onLocationSelect is not defined!');
           }
         });
-        console.log('[EventMap] Click handler attached successfully');
       } else {
-        console.log('[EventMap] Interactive is false, not attaching click handler');
         // Remove click handler if it was previously attached
         map.off('click');
       }
-    } else {
-      console.log('[EventMap] Skipping map creation - mapRef.current:', !!mapRef.current, 'mapInstanceRef.current:', !!mapInstanceRef.current);
     }
 
     // Update click handler when interactive or onLocationSelect changes
@@ -97,9 +85,7 @@ export default function EventMap({
       // Remove any existing click handlers
       map.off('click');
       // Add new click handler
-      console.log('[EventMap] Re-attaching click handler for interactive mode');
       map.on('click', (e) => {
-        console.log('[EventMap] MAP CLICKED (updated handler)!', e.latlng);
         onLocationSelect(e.latlng);
       });
     }
@@ -134,35 +120,27 @@ export default function EventMap({
   }, []); // Only run once on mount and unmount
 
   useEffect(() => {
-    console.log('[EventMap] Marker effect running - selectedLocation:', selectedLocation, 'eventLocation:', eventLocation, 'userLocation:', userLocation);
     if (isUnmountingRef.current) {
-      console.log('[EventMap] Component is unmounting, skipping marker update');
       return;
     }
     const map = mapInstanceRef.current;
     if (!map) {
-      console.log('[EventMap] Map instance not ready, skipping marker update');
       return;
     }
 
-    console.log('[EventMap] Clearing previous markers, count:', markersRef.current.length);
     // Clear previous markers
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
 
     if (selectedLocation) {
-        console.log('[EventMap] Adding selected location marker at:', selectedLocation);
         const marker = L.marker(selectedLocation).addTo(map).bindPopup("You selected this location");
         markersRef.current.push(marker);
-        console.log('[EventMap] Marker added successfully');
     }
     if (eventLocation) {
-        console.log('[EventMap] Adding event location marker');
         const marker = L.marker(eventLocation).addTo(map).bindPopup("Event Location");
         markersRef.current.push(marker);
     }
     if (userLocation) {
-        console.log('[EventMap] Adding user location marker');
         const marker = L.marker(userLocation).addTo(map).bindPopup("Your Location");
         markersRef.current.push(marker);
     }
@@ -171,14 +149,11 @@ export default function EventMap({
 
 
   useEffect(() => {
-    console.log('[EventMap] Route effect - routePath:', routePath?.length || 0);
     if (isUnmountingRef.current) {
-      console.log('[EventMap] Route effect skipped: unmounting');
       return;
     }
     const map = mapInstanceRef.current;
     if (!map) {
-      console.log('[EventMap] Route effect skipped: map not ready');
       return;
     }
     // Remove existing polyline
@@ -218,9 +193,6 @@ export default function EventMap({
       
       // Fit map to route
       try { map.fitBounds(poly.getBounds(), { padding: [20, 20] } as any); } catch {}
-      console.log('[EventMap] Route polyline drawn, points:', routePath.length);
-    } else {
-      console.log('[EventMap] routePath empty or invalid; nothing to draw');
     }
   }, [routePath, startSnap, endSnap]);
 

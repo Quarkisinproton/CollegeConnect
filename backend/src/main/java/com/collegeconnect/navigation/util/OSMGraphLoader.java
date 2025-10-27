@@ -113,15 +113,11 @@ public class OSMGraphLoader {
             }
         }
 
-            // Stitch near-miss endpoints: connect way endpoints within 50m to bridge graph fragmentation
-            System.out.println("🔧 DEBUG: About to call stitchCloseEndpoints...");
-            stitchCloseEndpoints(graph, nodeMap, ways, 50.0);
-            System.out.println("🔧 DEBUG: stitchCloseEndpoints completed");
+        // Stitch near-miss endpoints: connect way endpoints within 50m to bridge graph fragmentation
+        stitchCloseEndpoints(graph, nodeMap, ways, 50.0);
         
-            // Stitch isolated nodes: connect nodes with 0-1 neighbors to nearest node within 50m
-            System.out.println("🔧 DEBUG: About to call stitchIsolatedNodes...");
-            stitchIsolatedNodes(graph, 50.0);
-            System.out.println("🔧 DEBUG: stitchIsolatedNodes completed");
+        // Stitch isolated nodes: connect nodes with 0-1 neighbors to nearest node within 50m
+        stitchIsolatedNodes(graph, 50.0);
 
         return new Result(graph, minLat, minLng, maxLat, maxLng);
     }
@@ -131,7 +127,6 @@ public class OSMGraphLoader {
      * This fixes common OSM data gaps where roads/paths nearly touch but aren't formally connected.
      */
     private void stitchCloseEndpoints(Graph graph, Map<Long, Node> nodeMap, List<Way> ways, double maxDistanceMeters) {
-        System.out.println("🔧 DEBUG: ENTERED stitchCloseEndpoints method");
         // Collect all way endpoints (first and last node of each way with a highway tag)
         List<Node> endpoints = new ArrayList<>();
         for (Way way : ways) {
@@ -169,17 +164,16 @@ public class OSMGraphLoader {
         }
         
         if (bridgesAdded > 0) {
-                System.out.println("   Stitched way endpoints: " + bridgesAdded + " bridges (<" + maxDistanceMeters + "m)");
+            System.out.println("   Stitched way endpoints: " + bridgesAdded + " bridges (<" + maxDistanceMeters + "m)");
         }
     }
 
-        /**
-         * Connect isolated nodes (with 0 or 1 neighbors) to the nearest node within maxDistance.
-         * This fixes nodes that are part of very short ways or disconnected from the main graph.
-         */
-        private void stitchIsolatedNodes(Graph graph, double maxDistanceMeters) {
-            System.out.println("🔧 DEBUG: ENTERED stitchIsolatedNodes method");
-            int bridgesAdded = 0;
+    /**
+     * Connect isolated nodes (with 0 or 1 neighbors) to the nearest node within maxDistance.
+     * This fixes nodes that are part of very short ways or disconnected from the main graph.
+     */
+    private void stitchIsolatedNodes(Graph graph, double maxDistanceMeters) {
+        int bridgesAdded = 0;
             List<Node> allNodes = new ArrayList<>(graph.getAllNodes());
         
             for (Node node : allNodes) {
@@ -218,10 +212,10 @@ public class OSMGraphLoader {
                 }
             }
         
-            if (bridgesAdded > 0) {
-                System.out.println("   Connected isolated nodes: " + bridgesAdded + " bridges (<" + maxDistanceMeters + "m)");
-            }
+        if (bridgesAdded > 0) {
+            System.out.println("   Connected isolated nodes: " + bridgesAdded + " bridges (<" + maxDistanceMeters + "m)");
         }
+    }
 
     private static class Way {
         List<Long> nodeRefs = new ArrayList<>();
