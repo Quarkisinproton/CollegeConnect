@@ -185,8 +185,12 @@ export default function EventDetailsPage() {
         // Update location
         const newLocation = L.latLng(position.coords.latitude, position.coords.longitude);
         setUserLocation(newLocation);
-        // Trigger route calculation
-        calculateRoute(newLocation, eventLocation).catch(() => {});
+        
+        // Trigger route calculation if event location is available
+        if (event?.location) {
+          const eventLoc = L.latLng(event.location.lat, event.location.lng);
+          calculateRoute(newLocation, eventLoc).catch(() => {});
+        }
         
         setIsNavigating(false);
         
@@ -233,16 +237,26 @@ export default function EventDetailsPage() {
 
   const handleManualLocationSet = (location: L.LatLng) => {
     console.log("LOG: Manual location set:", location);
+    if (!event?.location) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Event location not available' });
+      return;
+    }
     setUserLocation(location);
-    calculateRoute(location, eventLocation).catch(() => {});
+    const eventLoc = L.latLng(event.location.lat, event.location.lng);
+    calculateRoute(location, eventLoc).catch(() => {});
   };
 
   // Quick dev helper when you are not physically on campus
   const handleUseMockLocation = (which: 'gate' | 'quad') => {
+    if (!event?.location) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Event location not available' });
+      return;
+    }
     const mock = which === 'gate' ? DEV_ON_CAMPUS_START : DEV_ON_CAMPUS_ALT;
     setUserLocation(mock);
     setShowRoute(true);
-    calculateRoute(mock, eventLocation).catch(() => {});
+    const eventLoc = L.latLng(event.location.lat, event.location.lng);
+    calculateRoute(mock, eventLoc).catch(() => {});
   };
 
   const calculateRoute = async (start: L.LatLng, end: L.LatLng) => {
