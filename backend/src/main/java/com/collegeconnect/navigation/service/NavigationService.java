@@ -1,4 +1,7 @@
 package com.collegeconnect.navigation.service;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Comparator;
 
 import com.collegeconnect.navigation.algorithm.AStarAlgorithm;
 import com.collegeconnect.navigation.algorithm.BidirectionalAStarAlgorithm;
@@ -75,41 +78,67 @@ public class NavigationService {
         // First attempt without snapping
         Route first = defaultAlgo.findRoute(graph, startLat, startLng, endLat, endLng);
         if (!first.getPath().isEmpty()) {
+            System.out.println("[SmartSnap] Direct route found, no snapping needed.");
             return new RouteWithSnaps(first, null, null);
         }
 
-        // Find nearest nodes for start and end
-        com.collegeconnect.navigation.model.Node startNode = graph.findClosestNode(startLat, startLng);
-        com.collegeconnect.navigation.model.Node endNode = graph.findClosestNode(endLat, endLng);
-        
+        // Smart snapping with retry for isolated nodes
+        int maxTries = 5;
+        List<com.collegeconnect.navigation.model.Node> startCandidates = getClosestNodes(graph, startLat, startLng, maxTries);
+        List<com.collegeconnect.navigation.model.Node> endCandidates = getClosestNodes(graph, endLat, endLng, maxTries);
+
+        com.collegeconnect.navigation.model.Node startNode = null;
+        com.collegeconnect.navigation.model.Node endNode = null;
+        for (com.collegeconnect.navigation.model.Node candidate : startCandidates) {
+            int neighbors = graph.getNeighbors(candidate).size();
+            System.out.println("[SmartSnap] Start candidate: " + candidate + " neighbors=" + neighbors);
+            if (neighbors > 1) { startNode = candidate; break; }
+        }
+        if (startNode == null && !startCandidates.isEmpty()) startNode = startCandidates.get(0);
+
+        for (com.collegeconnect.navigation.model.Node candidate : endCandidates) {
+            int neighbors = graph.getNeighbors(candidate).size();
+            System.out.println("[SmartSnap] End candidate: " + candidate + " neighbors=" + neighbors);
+            if (neighbors > 1) { endNode = candidate; break; }
+        }
+        if (endNode == null && !endCandidates.isEmpty()) endNode = endCandidates.get(0);
+
         if (startNode == null || endNode == null) {
+            System.out.println("[SmartSnap] Could not find valid snapped nodes.");
             return new RouteWithSnaps(first, null, null);
         }
 
-        // Try with both snapped
         double snappedStartLat = startNode.getLatitude();
         double snappedStartLng = startNode.getLongitude();
         double snappedEndLat = endNode.getLatitude();
         double snappedEndLng = endNode.getLongitude();
 
+        System.out.println("[SmartSnap] Using snapped start: " + startNode + ", snapped end: " + endNode);
+
         Route second = defaultAlgo.findRoute(graph, snappedStartLat, snappedStartLng, snappedEndLat, snappedEndLng);
-        
+
         if (!second.getPath().isEmpty()) {
-            // Annotate algorithm to show snapping occurred
             String alg = second.getAlgorithm();
             try {
                 java.lang.reflect.Field f = second.getClass().getDeclaredField("algorithm");
                 f.setAccessible(true);
                 f.set(second, alg + " (snapped)");
             } catch (Exception ignore) {}
-            
-            // Build snap info
+
             SnapPoint startSnap = new SnapPoint(startLat, startLng, snappedStartLat, snappedStartLng);
             SnapPoint endSnap = new SnapPoint(endLat, endLng, snappedEndLat, snappedEndLng);
             return new RouteWithSnaps(second, startSnap, endSnap);
         }
-        
+
+        System.out.println("[SmartSnap] No route found after snapping. Start node neighbors=" + graph.getNeighbors(startNode).size() + ", End node neighbors=" + graph.getNeighbors(endNode).size());
         return new RouteWithSnaps(second, null, null);
+    }
+
+    // Helper: get N closest nodes to a lat/lng
+    private List<com.collegeconnect.navigation.model.Node> getClosestNodes(Graph graph, double lat, double lng, int n) {
+        List<com.collegeconnect.navigation.model.Node> all = new ArrayList<>(graph.getAllNodes());
+        all.sort(Comparator.comparingDouble(node -> Math.sqrt(Math.pow(node.getLatitude() - lat, 2) + Math.pow(node.getLongitude() - lng, 2))));
+        return all.subList(0, Math.min(n, all.size()));
     }
 
     public record SnapPoint(double originalLat, double originalLng, double snappedLat, double snappedLng) {}
