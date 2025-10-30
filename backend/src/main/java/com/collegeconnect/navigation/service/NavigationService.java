@@ -134,12 +134,36 @@ public class NavigationService {
         return new RouteWithSnaps(second, null, null);
     }
 
-    // Helper: get N closest nodes to a lat/lng
+    // Helper: get N closest nodes to a lat/lng (optimized - fixed-size max-heap)
     private List<com.collegeconnect.navigation.model.Node> getClosestNodes(Graph graph, double lat, double lng, int n) {
-        List<com.collegeconnect.navigation.model.Node> all = new ArrayList<>(graph.getAllNodes());
-        all.sort(Comparator.comparingDouble(node -> Math.sqrt(Math.pow(node.getLatitude() - lat, 2) + Math.pow(node.getLongitude() - lng, 2))));
-        return all.subList(0, Math.min(n, all.size()));
+        // Use a max-heap of size N to keep only the N closest nodes (O(N log N) instead of O(M log M) where M=1803)
+        java.util.PriorityQueue<NodeDistance> maxHeap = new java.util.PriorityQueue<>(n + 1, 
+            (a, b) -> Double.compare(b.distance, a.distance)); // Max-heap: largest distance at top
+        
+        for (com.collegeconnect.navigation.model.Node node : graph.getAllNodes()) {
+            // Use squared distance to avoid expensive sqrt
+            double dx = node.getLatitude() - lat;
+            double dy = node.getLongitude() - lng;
+            double distSq = dx * dx + dy * dy;
+            
+            maxHeap.offer(new NodeDistance(node, distSq));
+            if (maxHeap.size() > n) {
+                maxHeap.poll(); // Remove farthest node, keep only N closest
+            }
+        }
+        
+        // Convert to list sorted by distance (closest first)
+        List<NodeDistance> sorted = new ArrayList<>(maxHeap);
+        sorted.sort(Comparator.comparingDouble(nd -> nd.distance));
+        
+        List<com.collegeconnect.navigation.model.Node> result = new ArrayList<>(n);
+        for (NodeDistance nd : sorted) {
+            result.add(nd.node);
+        }
+        return result;
     }
+    
+    private record NodeDistance(com.collegeconnect.navigation.model.Node node, double distance) {}
 
     public record SnapPoint(double originalLat, double originalLng, double snappedLat, double snappedLng) {}
     public record RouteWithSnaps(Route route, SnapPoint startSnap, SnapPoint endSnap) {}
