@@ -455,6 +455,7 @@ export default function EventDetailsPage() {
               <EventMap 
                 eventLocation={eventLocation} 
                 userLocation={userLocation} 
+                showRoute={showRoute}
                 routePath={routePath}
                 startSnap={startSnap}
                 endSnap={endSnap}
