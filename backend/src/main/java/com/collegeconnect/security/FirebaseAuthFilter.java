@@ -38,9 +38,9 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
         // Allow public access to health endpoint and static assets
         if (path.equals("/health") || path.equals("/healthz") || path.equals("/")) return true;
         
-        // Allow unauthenticated access to user and event endpoints for demo purposes
-        // In production, you should require proper authentication
-        if (path.startsWith("/api/users") || path.startsWith("/api/events")) {
+        // Allow unauthenticated access to user, event, and navigation endpoints for demo purposes
+        // In production, you should require proper authentication for sensitive endpoints
+        if (path.startsWith("/api/users") || path.startsWith("/api/events") || path.startsWith("/api/navigation")) {
             return true;
         }
 

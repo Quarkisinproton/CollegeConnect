@@ -90,11 +90,17 @@ export default function EventDetailsPage() {
 
 
   const [userLocation, setUserLocation] = useState<L.LatLng | null>(null);
+  const [routePath, setRoutePath] = useState<Array<{lat:number; lng:number}> | null>(null);
+  const [startSnap, setStartSnap] = useState<{original: {lat:number; lng:number}; snapped: {lat:number; lng:number}} | null>(null);
+  const [endSnap, setEndSnap] = useState<{original: {lat:number; lng:number}; snapped: {lat:number; lng:number}} | null>(null);
   const [showRoute, setShowRoute] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
   const initialLoadComplete = useRef(false);
   const watchIdRef = useRef<number | null>(null);
+  // Dev helper: preset mock on-campus locations so you can test when off-campus
+  const DEV_ON_CAMPUS_START = L.latLng(17.7836, 83.3786); // inside campus bounds
+  const DEV_ON_CAMPUS_ALT = L.latLng(17.7862, 83.3801);
 
   // Cleanup geolocation watch on unmount
   useEffect(() => {
@@ -179,12 +185,12 @@ export default function EventDetailsPage() {
         // Update location
         const newLocation = L.latLng(position.coords.latitude, position.coords.longitude);
         setUserLocation(newLocation);
-        setShowRoute(true);
         
-        toast({ 
-          title: "Location Updated", 
-          description: `Accuracy: ${Math.round(position.coords.accuracy)}m. Route calculated from your current location.` 
-        });
+        // Trigger route calculation if event location is available
+        if (event?.location) {
+          const eventLoc = L.latLng(event.location.lat, event.location.lng);
+          calculateRoute(newLocation, eventLoc).catch(() => {});
+        }
         
         setIsNavigating(false);
         
@@ -231,9 +237,116 @@ export default function EventDetailsPage() {
 
   const handleManualLocationSet = (location: L.LatLng) => {
     console.log("LOG: Manual location set:", location);
+    if (!event?.location) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Event location not available' });
+      return;
+    }
     setUserLocation(location);
+    const eventLoc = L.latLng(event.location.lat, event.location.lng);
+    calculateRoute(location, eventLoc).catch(() => {});
+  };
+
+  // Quick dev helper when you are not physically on campus
+  const handleUseMockLocation = (which: 'gate' | 'quad') => {
+    if (!event?.location) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Event location not available' });
+      return;
+    }
+    const mock = which === 'gate' ? DEV_ON_CAMPUS_START : DEV_ON_CAMPUS_ALT;
+    setUserLocation(mock);
     setShowRoute(true);
-    toast({ title: "Start Location Set", description: "Route calculated from selected location." });
+    const eventLoc = L.latLng(event.location.lat, event.location.lng);
+    calculateRoute(mock, eventLoc).catch(() => {});
+  };
+
+  const calculateRoute = async (start: L.LatLng, end: L.LatLng) => {
+    try {
+      setIsNavigating(true);
+      setShowRoute(true);
+      setRoutePath(null);
+      setStartSnap(null);
+      setEndSnap(null);
+      
+      const res = await fetch(`${BACKEND_BASE}/api/navigation/route`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start: { lat: start.lat, lng: start.lng },
+          end: { lat: end.lat, lng: end.lng },
+          algorithm: 'BIA'
+        })
+      });
+      
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 400 && data?.code === 'OUTSIDE_CAMPUS') {
+          toast({ 
+            variant: 'destructive', 
+            title: '📍 Outside Campus Bounds', 
+            description: 'Navigation is only available within campus. Please ensure you are on campus to use this feature.' 
+          });
+        } else if (res.status === 404) {
+          toast({ 
+            variant: 'destructive', 
+            title: 'No Route Found', 
+            description: (data && data.error) ? data.error : 'Could not find a walking path between your location and the event. Please move a little and try again.' 
+          });
+        } else {
+          toast({ 
+            variant: 'destructive', 
+            title: 'Navigation Error', 
+            description: data?.error || 'Failed to calculate route. Please try again.' 
+          });
+        }
+        setIsNavigating(false);
+        return;
+      }
+      
+      const data = await res.json();
+      const path: Array<{lat:number; lng:number}> = (data?.path || []) as any;
+      
+      if (path.length === 0) {
+        toast({ 
+          variant: 'destructive', 
+          title: 'No Path Available', 
+          description: 'Could not generate a route. Please check your location.' 
+        });
+        setIsNavigating(false);
+        return;
+      }
+      
+      setRoutePath(path);
+      
+      // Set snap segments if present
+      if (data?.startSnap) {
+        setStartSnap(data.startSnap);
+      }
+      if (data?.endSnap) {
+        setEndSnap(data.endSnap);
+      }
+      
+      const distanceKm = (data?.distance || 0) / 1000;
+      const durationMin = Math.round((data?.duration || 0) / 60);
+      const algo = data?.algorithm || 'BiA*';
+      const metrics = data?.metrics || '';
+      
+      // Indicate if snapping occurred
+      const snapNote = (data?.startSnap || data?.endSnap) ? ' 📍 (snapped to road)' : '';
+      
+      toast({ 
+        title: '🗺️ Route Ready', 
+        description: `${distanceKm.toFixed(2)} km · ${durationMin} min walk · ${algo}${metrics}${snapNote}`
+      });
+    } catch (e) {
+      console.error('LOG: calculateRoute error', e);
+      toast({ 
+        variant: 'destructive', 
+        title: 'Connection Error', 
+        description: 'Could not reach the navigation service. Please check your connection.' 
+      });
+    } finally {
+      setIsNavigating(false);
+    }
   };
 
 
@@ -301,15 +414,51 @@ export default function EventDetailsPage() {
               </Card>
 
               <Button onClick={handleNavigateClick} disabled={isNavigating} className="w-full">
-                  {isNavigating ? <Loader className="mr-2 h-4 w-4" /> : <Navigation className="mr-2 h-4 w-4" />}
-                  {showRoute ? "Recalculate Route" : "Navigate to Event"}
+                  {isNavigating ? (
+                    <>
+                      <Loader className="mr-2 h-4 w-4 animate-spin" />
+                      Calculating Route...
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="mr-2 h-4 w-4" />
+                      {showRoute ? "Recalculate Route" : "Navigate to Event"}
+                    </>
+                  )}
               </Button>
+
+              {process.env.NODE_ENV === 'development' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Dev: Test Without Being On Campus</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      You can test routing by using a mock start point inside campus or by simply clicking on the map.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button variant="secondary" onClick={() => handleUseMockLocation('gate')}>
+                        Use Mock Start (Gate)
+                      </Button>
+                      <Button variant="secondary" onClick={() => handleUseMockLocation('quad')}>
+                        Use Mock Start (Quad)
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Tip: You can also click anywhere on the map to set a start location manually.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
           </div>
           <div className="lg:col-span-3 h-[400px] lg:h-auto rounded-lg overflow-hidden border">
               <EventMap 
                 eventLocation={eventLocation} 
                 userLocation={userLocation} 
                 showRoute={showRoute}
+                routePath={routePath}
+                startSnap={startSnap}
+                endSnap={endSnap}
                 interactive={true}
                 onLocationSelect={handleManualLocationSet}
               />

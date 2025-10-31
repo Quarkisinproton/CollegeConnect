@@ -3,7 +3,6 @@
 
 import { useEffect, useRef } from "react";
 import L from "leaflet";
-import "leaflet-routing-machine";
 
 // Fix for default icon issues with webpack
 import "leaflet/dist/leaflet.css";
@@ -24,6 +23,9 @@ interface EventMapProps {
   eventLocation?: L.LatLng | null;
   userLocation?: L.LatLng | null;
   showRoute?: boolean;
+  routePath?: Array<{lat: number; lng: number}> | null;
+  startSnap?: {original: {lat: number; lng: number}; snapped: {lat: number; lng: number}} | null;
+  endSnap?: {original: {lat: number; lng: number}; snapped: {lat: number; lng: number}} | null;
 }
 
 export default function EventMap({
@@ -33,23 +35,18 @@ export default function EventMap({
   eventLocation,
   userLocation,
   showRoute = false,
+  routePath,
+  startSnap,
+  endSnap,
 }: EventMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
-  const routingControlRef = useRef<L.Routing.Control | null>(null);
+  const routePolylineRef = useRef<L.Polyline | null>(null);
+  const snapLinesRef = useRef<L.Polyline[]>([]);
   const markersRef = useRef<L.Marker[]>([]);
-  const isUnmountingRef = useRef(false);
-  // Track the last waypoints we routed between to avoid unnecessary re-creations
-  const lastWaypointsRef = useRef<{ from: { lat: number; lng: number }; to: { lat: number; lng: number } } | null>(null);
 
   useEffect(() => {
-    // Reset unmounting flag on mount
-    isUnmountingRef.current = false;
-    
-    console.log('[EventMap] Effect running - interactive:', interactive, 'onLocationSelect:', !!onLocationSelect, 'mapInstanceRef.current:', !!mapInstanceRef.current);
-    
     if (mapRef.current && !mapInstanceRef.current) {
-      console.log('[EventMap] Creating new map instance');
       const center = eventLocation || selectedLocation || L.latLng(defaultPosition[0], defaultPosition[1]);
       
       const map = L.map(mapRef.current, {
@@ -67,103 +64,37 @@ export default function EventMap({
       map.setMaxBounds([[17.7789300, 83.3724800], [17.7872100, 83.3817700]]);
 
       if (interactive) {
-        console.log('[EventMap] Attaching click handler to map');
         map.on('click', (e) => {
-          console.log('[EventMap] MAP CLICKED!', e.latlng);
-          if (onLocationSelect) {
-            console.log('[EventMap] Calling onLocationSelect with:', e.latlng);
-            onLocationSelect(e.latlng);
-          } else {
-            console.log('[EventMap] onLocationSelect is not defined!');
-          }
+          onLocationSelect?.(e.latlng);
         });
-        console.log('[EventMap] Click handler attached successfully');
-      } else {
-        console.log('[EventMap] Interactive is false, not attaching click handler');
-        // Remove click handler if it was previously attached
-        map.off('click');
       }
-    } else {
-      console.log('[EventMap] Skipping map creation - mapRef.current:', !!mapRef.current, 'mapInstanceRef.current:', !!mapInstanceRef.current);
-    }
-
-    // Update click handler when interactive or onLocationSelect changes
-    if (mapInstanceRef.current && interactive && onLocationSelect) {
-      const map = mapInstanceRef.current;
-      // Remove any existing click handlers
-      map.off('click');
-      // Add new click handler
-      console.log('[EventMap] Re-attaching click handler for interactive mode');
-      map.on('click', (e) => {
-        console.log('[EventMap] MAP CLICKED (updated handler)!', e.latlng);
-        onLocationSelect(e.latlng);
-      });
     }
 
     return () => {
-      // Mark as unmounting to avoid any late-running effects
-      isUnmountingRef.current = true;
-
-      const map = mapInstanceRef.current;
-      try {
-        // Proactively remove routing control first (some plugins expect a live map during cleanup)
-        if (map && routingControlRef.current) {
-          try {
-            map.removeControl(routingControlRef.current);
-          } catch (e) {
-            // swallow – best-effort cleanup
-          } finally {
-            routingControlRef.current = null;
-          }
-        }
-
-        // Remove markers
-        markersRef.current.forEach(m => {
-          try { m.remove(); } catch {}
-        });
-        markersRef.current = [];
-
-        // Detach listeners and remove the map
-        if (map) {
-          try { map.off(); } catch {}
-          try { map.remove(); } catch {}
-        }
-      } finally {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
     };
   }, []); // Only run once on mount and unmount
 
   useEffect(() => {
-    console.log('[EventMap] Marker effect running - selectedLocation:', selectedLocation, 'eventLocation:', eventLocation, 'userLocation:', userLocation);
-    if (isUnmountingRef.current) {
-      console.log('[EventMap] Component is unmounting, skipping marker update');
-      return;
-    }
     const map = mapInstanceRef.current;
-    if (!map) {
-      console.log('[EventMap] Map instance not ready, skipping marker update');
-      return;
-    }
+    if (!map) return;
 
-    console.log('[EventMap] Clearing previous markers, count:', markersRef.current.length);
     // Clear previous markers
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
 
     if (selectedLocation) {
-        console.log('[EventMap] Adding selected location marker at:', selectedLocation);
         const marker = L.marker(selectedLocation).addTo(map).bindPopup("You selected this location");
         markersRef.current.push(marker);
-        console.log('[EventMap] Marker added successfully');
     }
     if (eventLocation) {
-        console.log('[EventMap] Adding event location marker');
         const marker = L.marker(eventLocation).addTo(map).bindPopup("Event Location");
         markersRef.current.push(marker);
     }
     if (userLocation) {
-        console.log('[EventMap] Adding user location marker');
         const marker = L.marker(userLocation).addTo(map).bindPopup("Your Location");
         markersRef.current.push(marker);
     }
@@ -172,76 +103,51 @@ export default function EventMap({
 
 
   useEffect(() => {
-    console.log('[EventMap] Route effect - showRoute:', showRoute, 'userLocation:', userLocation, 'eventLocation:', eventLocation);
-    if (isUnmountingRef.current) {
-      console.log('[EventMap] Route effect skipped: unmounting');
-      return;
-    }
     const map = mapInstanceRef.current;
-    if (!map) {
-      console.log('[EventMap] Route effect skipped: map not ready');
-      return;
-    }
+    if (!map) return;
     
-    // If waypoints haven't changed and a routing control already exists, skip re-creating it
-    const currentWaypoints = (userLocation && eventLocation)
-      ? { from: { lat: userLocation.lat, lng: userLocation.lng }, to: { lat: eventLocation.lat, lng: eventLocation.lng } }
-      : null;
-
-    const epsilon = 1e-6; // avoid flapping on tiny float diffs
-    const sameAsLast = !!currentWaypoints && !!lastWaypointsRef.current &&
-      Math.abs(currentWaypoints.from.lat - lastWaypointsRef.current.from.lat) < epsilon &&
-      Math.abs(currentWaypoints.from.lng - lastWaypointsRef.current.from.lng) < epsilon &&
-      Math.abs(currentWaypoints.to.lat - lastWaypointsRef.current.to.lat) < epsilon &&
-      Math.abs(currentWaypoints.to.lng - lastWaypointsRef.current.to.lng) < epsilon;
-
-    if (sameAsLast && routingControlRef.current && showRoute) {
-      console.log('[EventMap] Waypoints unchanged; keeping existing routing control');
-      return;
+    // Remove existing route polyline if it exists
+    if (routePolylineRef.current) {
+      map.removeLayer(routePolylineRef.current);
+      routePolylineRef.current = null;
     }
 
-    // Remove existing routing control if it exists
-    if (routingControlRef.current) {
-        console.log('[EventMap] Removing existing routing control');
-        // Some routers finish asynchronously and try to clear lines after control removal,
-        // which can throw if the control's map is already nulled. Defer removal safely.
-        const ctrl = routingControlRef.current;
-        routingControlRef.current = null;
-        try {
-          // Best-effort: clear waypoints to cancel pending requests
-          (ctrl as any)?.setWaypoints?.([]);
-        } catch {}
-        setTimeout(() => {
-          try { map.removeControl(ctrl); console.log('[EventMap] Routing control removed'); } catch (e) { console.log('[EventMap] Error removing routing control', e); }
-        }, 0);
-    }
+    // Remove existing snap lines
+    snapLinesRef.current.forEach(line => map.removeLayer(line));
+    snapLinesRef.current = [];
 
-    if (showRoute && userLocation && eventLocation) {
-    // Guard against the routing plugin not being available
-    if (!(L as any).Routing || !(L as any).Routing.control) { console.log('[EventMap] L.Routing not available'); return; }
-    console.log('[EventMap] Creating routing control with waypoints', { from: userLocation, to: eventLocation });
-    const routingControl = (L as any).Routing.control(({
-      waypoints: [
-        L.latLng(userLocation.lat, userLocation.lng),
-        L.latLng(eventLocation.lat, eventLocation.lng)
-      ],
-      routeWhileDragging: true,
-      show: false,
-      addWaypoints: false,
-      fitSelectedRoutes: true,
-      lineOptions: ({ styles: [{ color: '#4169E1', opacity: 0.8, weight: 6 }] } as any),
-      createMarker: function() { return null; }
-    } as any)).addTo(map);
-        routingControlRef.current = routingControl;
-        lastWaypointsRef.current = {
-          from: { lat: userLocation.lat, lng: userLocation.lng },
-          to: { lat: eventLocation.lat, lng: eventLocation.lng },
-        };
-        console.log('[EventMap] Routing control added');
-    } else {
-      console.log('[EventMap] Not creating route (conditions not met)');
+    // Draw the custom route path if available
+    if (showRoute && routePath && routePath.length > 0) {
+      // Draw snap lines (original to snapped points) in red dashed style
+      if (startSnap) {
+        const snapLine = L.polyline(
+          [[startSnap.original.lat, startSnap.original.lng], [startSnap.snapped.lat, startSnap.snapped.lng]],
+          { color: '#EF4444', weight: 2, dashArray: '5, 5', opacity: 0.7 }
+        ).addTo(map);
+        snapLinesRef.current.push(snapLine);
+      }
+      if (endSnap) {
+        const snapLine = L.polyline(
+          [[endSnap.original.lat, endSnap.original.lng], [endSnap.snapped.lat, endSnap.snapped.lng]],
+          { color: '#EF4444', weight: 2, dashArray: '5, 5', opacity: 0.7 }
+        ).addTo(map);
+        snapLinesRef.current.push(snapLine);
+      }
+
+      // Draw the main route polyline in blue
+      const latlngs: L.LatLngExpression[] = routePath.map(p => [p.lat, p.lng]);
+      const polyline = L.polyline(latlngs, {
+        color: '#4169E1',
+        weight: 6,
+        opacity: 0.8,
+      }).addTo(map);
+      
+      routePolylineRef.current = polyline;
+      
+      // Fit map to show the entire route
+      map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
     }
-  }, [showRoute, userLocation, eventLocation]);
+  }, [showRoute, routePath, startSnap, endSnap]);
 
   return <div ref={mapRef} className="rounded-lg h-full w-full z-0" />;
 }

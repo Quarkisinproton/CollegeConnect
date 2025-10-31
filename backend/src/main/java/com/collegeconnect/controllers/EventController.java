@@ -72,50 +72,18 @@ public class EventController {
         return ResponseEntity.ok(Map.of("id", docRef.getId()));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<?> getEvent(@PathVariable String id) throws ExecutionException, InterruptedException {
-        ApiFuture<com.google.cloud.firestore.DocumentSnapshot> future = firestore.collection("events").document(id).get();
-        com.google.cloud.firestore.DocumentSnapshot doc = future.get();
-        
-        if (!doc.exists()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Event not found"));
-        }
-        
-        Map<String, Object> data = doc.getData();
-        Object dt = data.get("dateTime");
-        String dtIso = null;
-        if (dt instanceof java.util.Date) {
-            dtIso = java.time.Instant.ofEpochMilli(((java.util.Date) dt).getTime()).toString();
-        } else if (dt != null) {
-            dtIso = dt.toString();
-        }
-        
-        Map<String, Object> out = new HashMap<>(data);
-        out.put("id", doc.getId());
-        out.put("dateTime", dtIso);
-        
-        return ResponseEntity.ok(out);
-    }
-
     @GetMapping
-    public ResponseEntity<?> listEvents(
-            @RequestParam(name = "owner", required = false) Boolean owner,
-            @RequestParam(name = "uid", required = false) String uidParam
-    ) throws ExecutionException, InterruptedException {
-        // If owner=true, return events created by the specified user
+    public ResponseEntity<?> listEvents(@RequestParam(name = "owner", required = false) Boolean owner) throws ExecutionException, InterruptedException {
+        // If owner=true, return events created by the authenticated user.
         if (owner != null && owner) {
-            // For demo purposes, allow uid to be passed as parameter
-            // In production, you'd use currentUser.getUid() from the auth token
-            String uid = uidParam != null ? uidParam : currentUser.getUid();
+            String uid = currentUser.getUid();
             if (uid == null) {
-                // Demo-friendly behavior: no uid -> return empty list instead of 401
-                return ResponseEntity.ok(List.of());
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "authentication required"));
             }
 
-            // NOTE: Avoid composite index requirement by not ordering in Firestore.
-            // We'll sort the results by dateTime in memory instead of using orderBy("dateTime").
             ApiFuture<QuerySnapshot> future = firestore.collection("events")
                     .whereEqualTo("createdBy", uid)
+                    .orderBy("dateTime")
                     .get();
 
             List<Map<String, Object>> results = new ArrayList<>();
@@ -123,36 +91,20 @@ public class EventController {
                 Map<String, Object> data = doc.getData();
                 Object dt = data.get("dateTime");
                 String dtIso = null;
-                long dtMs = Long.MAX_VALUE; // push nulls to the end
                 if (dt instanceof java.util.Date) {
-                    dtMs = ((java.util.Date) dt).getTime();
-                    dtIso = java.time.Instant.ofEpochMilli(dtMs).toString();
+                    dtIso = java.time.Instant.ofEpochMilli(((java.util.Date) dt).getTime()).toString();
                 } else if (dt != null) {
-                    // Attempt to parse string value if present
-                    try {
-                        dtIso = dt.toString();
-                        dtMs = java.time.Instant.parse(dtIso).toEpochMilli();
-                    } catch (Exception ignore) {
-                        // leave dtMs as MAX_VALUE
-                    }
+                    dtIso = dt.toString();
                 }
                 Map<String, Object> out = new HashMap<>(data);
                 out.put("id", doc.getId());
                 out.put("dateTime", dtIso);
-                out.put("_dtMs", dtMs); // temporary for sorting
                 results.add(out);
             }
-            // Sort ascending by date/time
-            results.sort((a, b) -> Long.compare(
-                    ((Number) a.getOrDefault("_dtMs", Long.MAX_VALUE)).longValue(),
-                    ((Number) b.getOrDefault("_dtMs", Long.MAX_VALUE)).longValue()
-            ));
-            // Remove the temp field
-            results.forEach(m -> m.remove("_dtMs"));
             return ResponseEntity.ok(results);
         }
 
-    // Default: return all events (unfiltered)
+        // Default: return all events (unfiltered)
         ApiFuture<QuerySnapshot> future = firestore.collection("events").orderBy("dateTime").get();
         List<Map<String, Object>> results = new ArrayList<>();
         for (QueryDocumentSnapshot doc : future.get().getDocuments()) {
@@ -170,5 +122,32 @@ public class EventController {
             results.add(out);
         }
         return ResponseEntity.ok(results);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getEventById(@PathVariable String id) throws ExecutionException, InterruptedException {
+        DocumentReference docRef = firestore.collection("events").document(id);
+        ApiFuture<com.google.cloud.firestore.DocumentSnapshot> future = docRef.get();
+        com.google.cloud.firestore.DocumentSnapshot document = future.get();
+        
+        if (!document.exists()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Event not found", "id", id));
+        }
+        
+        Map<String, Object> data = document.getData();
+        Object dt = data.get("dateTime");
+        String dtIso = null;
+        if (dt instanceof java.util.Date) {
+            dtIso = java.time.Instant.ofEpochMilli(((java.util.Date) dt).getTime()).toString();
+        } else if (dt != null) {
+            dtIso = dt.toString();
+        }
+        
+        Map<String, Object> out = new HashMap<>(data);
+        out.put("id", document.getId());
+        out.put("dateTime", dtIso);
+        
+        return ResponseEntity.ok(out);
     }
 }

@@ -1,36 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useUser } from "@/firebase";
+import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { useEffect, useState } from "react";
-import { Timestamp } from "firebase/firestore";
+import { collection, query, orderBy, Timestamp } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
 import { format } from "date-fns";
 import type { CampusEvent } from "@/types";
-import { productionConfig } from "@/config/production";
-
 type DisplayEvent = Omit<CampusEvent, 'dateTime'> & { dateTime: Date };
 
-const BACKEND_BASE = process.env.NODE_ENV === 'production' 
-  ? productionConfig.backendUrl 
-  : (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8081');
-
 function EventList() {
+  const firestore = useFirestore();
+  const eventsQuery = useMemoFirebase(() => query(collection(firestore, "events"), orderBy("dateTime", "asc")), [firestore]);
+  const { data: events, isLoading, error } = useCollection<CampusEvent>(eventsQuery);
   const { user } = useUser();
-  const [events, setEvents] = useState<DisplayEvent[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  console.log('[Dashboard] EventList render:', { 
-    isLoading, 
-    error, 
-    eventsCount: events?.length,
-    userRole: user?.role,
-    userId: user?.uid
-  });
-
   const [ownedEvents, setOwnedEvents] = useState<DisplayEvent[] | null>(null);
   const [ownedLoading, setOwnedLoading] = useState(false);
   const [ownedError, setOwnedError] = useState<string | null>(null);
@@ -42,58 +27,6 @@ function EventList() {
     if (dt instanceof Date) return dt;
     return new Date(dt as any);
   };
-
-  // Fetch all events from backend API
-  useEffect(() => {
-    let active = true;
-    setIsLoading(true);
-    setError(null);
-
-    const headers: Record<string, string> = { 'Accept': 'application/json' };
-    
-    (async () => {
-      try {
-        // Try to get ID token if available
-        // @ts-ignore
-        if (user?.getIdToken) {
-          // @ts-ignore
-          const token = await user.getIdToken();
-          if (token) headers['Authorization'] = `Bearer ${token}`;
-        }
-      } catch (e) {
-        // ignore
-      }
-
-      fetch(`${BACKEND_BASE}/api/events`, { method: 'GET', headers })
-        .then(async (res) => {
-          if (!res.ok) {
-            const txt = await res.text();
-            throw new Error(txt || 'Failed to load events');
-          }
-          return res.json();
-        })
-        .then((json: CampusEvent[]) => {
-          if (!active) return;
-          // Convert dateTime ISO strings to Dates
-          const mapped = (json || []).map((ev) => ({ 
-            ...ev, 
-            dateTime: ev.dateTime ? new Date(ev.dateTime as any) : new Date() 
-          })) as DisplayEvent[];
-          console.log('[Dashboard] Events fetched from backend:', mapped.length);
-          setEvents(mapped);
-        })
-        .catch((err) => {
-          if (!active) return;
-          console.error('[Dashboard] Error fetching events:', err);
-          setError(err.message || 'Failed to load events');
-        })
-        .finally(() => { 
-          if (active) setIsLoading(false); 
-        });
-    })();
-
-    return () => { active = false; };
-  }, [user?.uid]);
 
   // Fetch owned events when the user is a president. Keep hook unconditional.
   useEffect(() => {
@@ -114,9 +47,7 @@ function EventList() {
       } catch (e) {
         // ignore
       }
-  // In local emulator mode the backend allows passing uid explicitly
-  // so that we can filter without requiring Firebase Admin token verification.
-  fetch(`${BACKEND_BASE}/api/events?owner=true&uid=${user.uid}`, { method: 'GET', headers })
+      fetch(`/api/events?owner=true`, { method: 'GET', headers })
       .then(async (res) => {
         if (!res.ok) {
           const txt = await res.text();
@@ -163,9 +94,11 @@ function EventList() {
   }
 
   if (error) {
+    // The error is thrown by the FirebaseErrorListener, so we don't need to render a message here.
+    // We can return a loader or a fallback UI.
     return <div className="text-center py-16 border-2 border-dashed rounded-lg bg-destructive/10 border-destructive/50">
         <h2 className="text-xl font-semibold text-destructive">Error Loading Events</h2>
-        <p className="text-muted-foreground mt-2">{error}</p>
+        <p className="text-muted-foreground mt-2">There was a permission error. The detailed error should be visible in the development overlay.</p>
     </div>;
   }
   
@@ -191,7 +124,8 @@ function EventList() {
   }) as DisplayEvent[];
 
   if (user?.role === 'president') {
-  const myEvents = ownedEvents ?? normalized.filter((e) => (e as any).createdBy === user.uid);
+    // Use owned events from the backend fetch above
+    const myEvents = ownedEvents ?? normalized.filter((e) => (e as any).createdBy === user.uid);
   const otherUpcoming = normalized.filter((e) => (e as any).createdBy !== user.uid);
 
     return (
