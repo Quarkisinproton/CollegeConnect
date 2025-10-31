@@ -2,13 +2,11 @@
 
 import Link from "next/link";
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { useEffect, useState } from "react";
 import { collection, query, orderBy, Timestamp } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
 import { format } from "date-fns";
-import { productionConfig } from "@/config/production";
 import type { CampusEvent } from "@/types";
 type DisplayEvent = Omit<CampusEvent, 'dateTime'> & { dateTime: Date };
 
@@ -16,12 +14,6 @@ function EventList() {
   const firestore = useFirestore();
   const eventsQuery = useMemoFirebase(() => query(collection(firestore, "events"), orderBy("dateTime", "asc")), [firestore]);
   const { data: events, isLoading, error } = useCollection<CampusEvent>(eventsQuery);
-  const { user } = useUser();
-  const [ownedEvents, setOwnedEvents] = useState<DisplayEvent[] | null>(null);
-  const [ownedLoading, setOwnedLoading] = useState(false);
-  const [ownedError, setOwnedError] = useState<string | null>(null);
-  // Use the same backend base resolution as other pages/components
-  const BACKEND_BASE = productionConfig.backendUrl;
 
   // Helper to normalize a Timestamp | Date | string to a Date instance
   const toDate = (dt: Date | Timestamp | string | undefined): Date => {
@@ -30,54 +22,6 @@ function EventList() {
     if (dt instanceof Date) return dt;
     return new Date(dt as any);
   };
-
-  // Fetch owned events when the user is a president. Keep hook unconditional.
-  useEffect(() => {
-    let active = true;
-    if (!user?.uid || user?.role !== 'president') return;
-    setOwnedLoading(true);
-    setOwnedError(null);
-    const headers: Record<string,string> = { 'Accept': 'application/json' };
-    // attach ID token when available
-    (async () => {
-      try {
-        // @ts-ignore
-        if (user?.getIdToken) {
-          // @ts-ignore
-          const token = await user.getIdToken();
-          if (token) headers['Authorization'] = `Bearer ${token}`;
-        }
-      } catch (e) {
-        // ignore
-      }
-      fetch(`${BACKEND_BASE}/api/events?owner=true`, { method: 'GET', headers })
-      .then(async (res) => {
-        if (!res.ok) {
-          // Avoid dumping HTML error pages in the UI
-          const contentType = res.headers.get('content-type') || '';
-          const txt = await res.text();
-          if (contentType.includes('text/html') || (txt && txt.trim().startsWith('<'))) {
-            throw new Error(`Request failed (${res.status}). Check backend URL configuration.`);
-          }
-          throw new Error(txt || 'server error');
-        }
-        return res.json();
-      })
-      .then((json: CampusEvent[]) => {
-        if (!active) return;
-  // Convert dateTime ISO strings to Dates
-  const mapped = (json || []).map((ev) => ({ ...ev, dateTime: ev.dateTime ? new Date(ev.dateTime as any) : new Date() })) as DisplayEvent[];
-  setOwnedEvents(mapped);
-      })
-      .catch((err) => {
-        if (!active) return;
-        setOwnedError(err.message || 'Failed to load owned events');
-      })
-      .finally(() => { if (active) setOwnedLoading(false); });
-    })();
-
-    return () => { active = false; };
-  }, [user?.uid, user?.role]);
 
   if (isLoading) {
     return (
@@ -131,71 +75,8 @@ function EventList() {
     return { ...event, dateTime: dateObj };
   }) as DisplayEvent[];
 
-  if (user?.role === 'president') {
-    // Use owned events from the backend fetch above
-    const myEvents = ownedEvents ?? normalized.filter((e) => (e as any).createdBy === user.uid);
-  const otherUpcoming = normalized.filter((e) => (e as any).createdBy !== user.uid);
-
-    return (
-      <div className="space-y-8">
-        <div>
-          <h2 className="text-2xl font-semibold mb-4">My Events</h2>
-          {ownedLoading ? (
-            <div className="text-muted-foreground">Loading your events…</div>
-          ) : ownedError ? (
-            <div className="text-destructive">Error loading your events: {ownedError}</div>
-          ) : myEvents.length === 0 ? (
-            <div className="text-muted-foreground">You haven't published any events yet.</div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {myEvents.map((event) => (
-                <Card key={event.id} className="flex flex-col">
-                  <CardHeader>
-                    <CardTitle className="truncate">{event.name}</CardTitle>
-                    <CardDescription>{format(toDate(event.dateTime as any), "EEEE, MMMM do, yyyy 'at' p")}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex-grow">
-                    <p className="line-clamp-3 text-sm text-muted-foreground">{event.description}</p>
-                  </CardContent>
-                  <CardFooter>
-                    <Button asChild size="sm">
-                      <Link href={`/events/${event.id}`}>View Details</Link>
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div>
-          <h2 className="text-2xl font-semibold mb-4">Upcoming Events</h2>
-          {otherUpcoming.length === 0 ? (
-            <div className="text-muted-foreground">No upcoming events from other organizers.</div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {otherUpcoming.map((event) => (
-                <Card key={event.id} className="flex flex-col">
-                  <CardHeader>
-                    <CardTitle className="truncate">{event.name}</CardTitle>
-                    <CardDescription>{format(toDate(event.dateTime as any), "EEEE, MMMM do, yyyy 'at' p")}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex-grow">
-                    <p className="line-clamp-3 text-sm text-muted-foreground">{event.description}</p>
-                  </CardContent>
-                  <CardFooter>
-                    <Button asChild size="sm">
-                      <Link href={`/events/${event.id}`}>View Details</Link>
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+  // Presidents and students see the same list now: all events from Firestore
+  // Removed "My Events" section to avoid backend auth requirements
 
   // Default (student) view: show all normalized events
   return (
