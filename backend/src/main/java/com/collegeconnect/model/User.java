@@ -19,7 +19,6 @@ public class User {
     private Date createdAt;
     private Date lastLogin;
     
-    // Default constructor
     public User() {
         this.createdAt = new Date();
     }
@@ -30,7 +29,7 @@ public class User {
         this.uid = uid;
     }
     
-    // Constructor with essential fields - constructor overloading
+    // Constructor with essential fields
     public User(String uid, String email, String displayName) {
         this(uid);
         this.email = email;
@@ -38,7 +37,6 @@ public class User {
         this.role = "student"; // default role
     }
     
-    // Full constructor - another overloaded constructor
     public User(String uid, String email, String displayName, String role, Date createdAt) {
         this.uid = uid;
         this.email = email;
@@ -97,7 +95,6 @@ public class User {
         this.lastLogin = lastLogin;
     }
     
-    // Business logic methods
     public boolean isAdmin() {
         return "admin".equalsIgnoreCase(this.role);
     }
@@ -110,7 +107,7 @@ public class User {
         this.lastLogin = new Date();
     }
     
-    // Method overloading - different ways to update profile
+    // diff ways to update profile
     public void updateProfile(String displayName) {
         this.displayName = displayName;
     }

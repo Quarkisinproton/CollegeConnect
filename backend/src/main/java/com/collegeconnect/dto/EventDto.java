@@ -12,10 +12,10 @@ public class EventDto {
     public String description;
 
     @NotBlank
-    public String dateTime; // ISO string
+    public String dateTime;
 
     @NotNull
-    public Map<String, Object> location; // { lat: double, lng: double }
+    public Map<String, Object> location;
 
     @NotBlank
     public String locationName;
@@ -25,7 +25,7 @@ public class EventDto {
 
     public String creatorName;
 
-    public String createdAt; // ISO string
+    public String createdAt;
 
     public EventDto() {}
 }

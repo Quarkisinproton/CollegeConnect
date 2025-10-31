@@ -14,7 +14,6 @@ import java.util.Map;
  */
 public class Event {
     
-    // Private fields - demonstrating encapsulation
     private String id;
     private String name;
     private String description;
@@ -30,21 +29,18 @@ public class Event {
         this.createdAt = new Date();
     }
     
-    // Constructor with essential fields - demonstrating constructor overloading
     public Event(String name, String description) {
         this();
         this.name = name;
         this.description = description;
     }
     
-    // Constructor with more fields - another overloaded constructor
     public Event(String name, String description, Date dateTime, String locationName) {
         this(name, description);
         this.dateTime = dateTime;
         this.locationName = locationName;
     }
     
-    // Full constructor - yet another overloaded constructor
     public Event(String id, String name, String description, Date dateTime, 
                  Map<String, Object> location, String locationName, 
                  String createdBy, String creatorName, Date createdAt) {
@@ -59,7 +55,6 @@ public class Event {
         this.createdAt = createdAt;
     }
     
-    // Public getter methods - demonstrating access specifiers
     public String getId() {
         return id;
     }
@@ -96,7 +91,6 @@ public class Event {
         return createdAt;
     }
     
-    // Public setter methods - demonstrating encapsulation
     public void setId(String id) {
         this.id = id;
     }
@@ -133,7 +127,6 @@ public class Event {
         this.createdAt = createdAt;
     }
     
-    // Method demonstrating business logic
     public boolean isUpcoming() {
         if (dateTime == null) {
             return false;
@@ -141,24 +134,21 @@ public class Event {
         return dateTime.after(new Date());
     }
     
-    // Method overloading - different parameter types
     public void updateLocation(String locationName) {
         this.locationName = locationName;
     }
     
-    // Overloaded method with different parameters
     public void updateLocation(double latitude, double longitude, String locationName) {
         this.locationName = locationName;
         this.location = Map.of("lat", latitude, "lng", longitude);
     }
     
-    // Overloaded method with Map parameter
     public void updateLocation(Map<String, Object> location, String locationName) {
         this.location = location;
         this.locationName = locationName;
     }
     
-    // Override toString method for better object representation
+    // Override toString method
     @Override
     public String toString() {
         return "Event{" +

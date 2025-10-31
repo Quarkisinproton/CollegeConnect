@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
 import { format } from "date-fns";
+import { productionConfig } from "@/config/production";
 import type { CampusEvent } from "@/types";
 type DisplayEvent = Omit<CampusEvent, 'dateTime'> & { dateTime: Date };
 
@@ -19,6 +20,8 @@ function EventList() {
   const [ownedEvents, setOwnedEvents] = useState<DisplayEvent[] | null>(null);
   const [ownedLoading, setOwnedLoading] = useState(false);
   const [ownedError, setOwnedError] = useState<string | null>(null);
+  // Use the same backend base resolution as other pages/components
+  const BACKEND_BASE = productionConfig.backendUrl;
 
   // Helper to normalize a Timestamp | Date | string to a Date instance
   const toDate = (dt: Date | Timestamp | string | undefined): Date => {
@@ -47,10 +50,15 @@ function EventList() {
       } catch (e) {
         // ignore
       }
-      fetch(`/api/events?owner=true`, { method: 'GET', headers })
+      fetch(`${BACKEND_BASE}/api/events?owner=true`, { method: 'GET', headers })
       .then(async (res) => {
         if (!res.ok) {
+          // Avoid dumping HTML error pages in the UI
+          const contentType = res.headers.get('content-type') || '';
           const txt = await res.text();
+          if (contentType.includes('text/html') || (txt && txt.trim().startsWith('<'))) {
+            throw new Error(`Request failed (${res.status}). Check backend URL configuration.`);
+          }
           throw new Error(txt || 'server error');
         }
         return res.json();

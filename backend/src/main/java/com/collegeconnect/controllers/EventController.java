@@ -48,7 +48,7 @@ public class EventController {
                 Instant inst = Instant.parse(dto.dateTime);
                 data.put("dateTime", Date.from(inst));
             } catch (Exception ex) {
-                // ignore parse error; backend could also return 400
+                // ignore
             }
         }
 
