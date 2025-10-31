@@ -123,4 +123,31 @@ public class EventController {
         }
         return ResponseEntity.ok(results);
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getEventById(@PathVariable String id) throws ExecutionException, InterruptedException {
+        DocumentReference docRef = firestore.collection("events").document(id);
+        ApiFuture<com.google.cloud.firestore.DocumentSnapshot> future = docRef.get();
+        com.google.cloud.firestore.DocumentSnapshot document = future.get();
+        
+        if (!document.exists()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Event not found", "id", id));
+        }
+        
+        Map<String, Object> data = document.getData();
+        Object dt = data.get("dateTime");
+        String dtIso = null;
+        if (dt instanceof java.util.Date) {
+            dtIso = java.time.Instant.ofEpochMilli(((java.util.Date) dt).getTime()).toString();
+        } else if (dt != null) {
+            dtIso = dt.toString();
+        }
+        
+        Map<String, Object> out = new HashMap<>(data);
+        out.put("id", document.getId());
+        out.put("dateTime", dtIso);
+        
+        return ResponseEntity.ok(out);
+    }
 }
