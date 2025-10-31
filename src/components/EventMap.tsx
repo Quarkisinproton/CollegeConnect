@@ -44,6 +44,7 @@ export default function EventMap({
   const routePolylineRef = useRef<L.Polyline | null>(null);
   const snapLinesRef = useRef<L.Polyline[]>([]);
   const markersRef = useRef<L.Marker[]>([]);
+  const fitTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (mapRef.current && !mapInstanceRef.current) {
@@ -75,6 +76,11 @@ export default function EventMap({
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
+      }
+      // cleanup any pending fit timeouts
+      if (fitTimeoutRef.current) {
+        window.clearTimeout(fitTimeoutRef.current);
+        fitTimeoutRef.current = null;
       }
     };
   }, []); // Only run once on mount and unmount
@@ -117,8 +123,9 @@ export default function EventMap({
     snapLinesRef.current.forEach(line => map.removeLayer(line));
     snapLinesRef.current = [];
 
-    // Draw the custom route path if available
-    if (showRoute && routePath && routePath.length > 0) {
+  // Draw the custom route path if available
+  const shouldDraw = !!routePath && routePath.length > 0 && (showRoute || true);
+  if (shouldDraw) {
       // Draw snap lines (original to snapped points) in red dashed style
       if (startSnap) {
         const snapLine = L.polyline(
@@ -145,8 +152,17 @@ export default function EventMap({
       
       routePolylineRef.current = polyline;
       
-      // Fit map to show the entire route
-      map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+      // Fit map to show the entire route (debounced to avoid jank on rapid updates)
+      if (fitTimeoutRef.current) {
+        window.clearTimeout(fitTimeoutRef.current);
+      }
+      fitTimeoutRef.current = window.setTimeout(() => {
+        try {
+          map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+        } catch (e) {
+          // no-op
+        }
+      }, 50);
     }
   }, [showRoute, routePath, startSnap, endSnap]);
 
