@@ -53,6 +53,7 @@ export default function EventMap({
         center: center,
         zoom: 16,
         scrollWheelZoom: true,
+        preferCanvas: true,
       });
       mapInstanceRef.current = map;
 

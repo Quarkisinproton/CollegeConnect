@@ -3,7 +3,11 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useUser } from "@/firebase";
-import Header from "@/components/Header";
+import dynamic from "next/dynamic";
+const Header = dynamic(() => import("@/components/Header"), {
+  ssr: false,
+  loading: () => null,
+});
 import { Loader } from "@/components/ui/loader";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
