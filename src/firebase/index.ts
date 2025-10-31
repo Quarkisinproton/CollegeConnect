@@ -12,7 +12,7 @@ export function initializeFirebase() {
     // integrates with the initializeApp() function to provide the environment variables needed to
     // populate the FirebaseOptions in production. It is critical that we attempt to call initializeApp()
     // without arguments.
-    let firebaseApp;
+    let firebaseApp: FirebaseApp | undefined;
     try {
       // Attempt to initialize via Firebase App Hosting environment variables
       firebaseApp = initializeApp();
@@ -20,21 +20,30 @@ export function initializeFirebase() {
     } catch (e) {
       // Only warn in production because it's normal to use the firebaseConfig to initialize
       // during development
-      if (process.env.NODE_ENV === "production") {
+      if (process.env.NODE_ENV === 'production') {
         console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
       }
-      // Debug: Log the config being used (masked for security)
-      console.log('[Firebase] Using config:', {
-        apiKey: firebaseConfig.apiKey.substring(0, 10) + '...',
-        authDomain: firebaseConfig.authDomain,
-        projectId: firebaseConfig.projectId,
-        appId: firebaseConfig.appId.substring(0, 20) + '...'
-      });
-      firebaseApp = initializeApp(firebaseConfig);
-      console.log('[Firebase] Initialized with hardcoded config');
+
+      // Guard against undefined config to avoid crashes in prod
+      const cfg = firebaseConfig as any;
+      if (!cfg || !cfg.apiKey || !cfg.projectId || !cfg.appId) {
+        console.error('[Firebase] Missing firebaseConfig. Ensure src/config/production.ts exports productionConfig.firebaseConfig with apiKey, projectId, appId.');
+        throw new Error('Firebase configuration missing at runtime');
+      }
+
+      // Avoid substring calls that can throw if values are undefined
+      console.log('[Firebase] Using provided Firebase config for initialization');
+
+      try {
+        firebaseApp = initializeApp(cfg);
+        console.log('[Firebase] Initialized with provided config');
+      } catch (initErr) {
+        console.error('[Firebase] Failed to initialize with provided config:', initErr);
+        throw initErr;
+      }
     }
 
-    return getSdks(firebaseApp);
+    return getSdks(firebaseApp!);
   }
 
   // If already initialized, return the SDKs with the already initialized App
@@ -57,7 +66,7 @@ export function getSdks(firebaseApp: FirebaseApp) {
     } catch (e) {
       console.warn('Could not connect to Firestore emulator:', e);
     }
-    
+
     // Note: Auth emulator is not available via gcloud SDK
     // Using real Firebase Auth for anonymous sign-in (works without emulator)
   }
@@ -65,7 +74,7 @@ export function getSdks(firebaseApp: FirebaseApp) {
   return {
     firebaseApp,
     auth,
-    firestore
+    firestore,
   };
 }
 
