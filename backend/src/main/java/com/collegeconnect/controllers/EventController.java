@@ -1,20 +1,22 @@
 package com.collegeconnect.controllers;
 
 import com.collegeconnect.dto.EventDto;
-import com.collegeconnect.security.FirebaseTokenVerifier;
 import jakarta.validation.Valid;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.Firestore;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpStatus;
 import com.collegeconnect.security.CurrentUser;
-import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.QuerySnapshot;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import java.time.Instant;
 import java.util.Date;
@@ -30,12 +32,10 @@ public class EventController {
     private Firestore firestore;
 
     @Autowired
-    private FirebaseTokenVerifier tokenVerifier;
-
-    @Autowired
     private CurrentUser currentUser;
 
     @PostMapping
+    @CacheEvict(value = {"events", "userEvents"}, allEntries = true)
     public ResponseEntity<?> createEvent(@Valid @RequestBody EventDto dto) throws ExecutionException, InterruptedException {
 
         Map<String, Object> data = new HashMap<>();
@@ -73,6 +73,7 @@ public class EventController {
     }
 
     @GetMapping("/{id}")
+    @Cacheable(value = "events", key = "#id")
     public ResponseEntity<?> getEvent(@PathVariable String id) throws ExecutionException, InterruptedException {
         ApiFuture<com.google.cloud.firestore.DocumentSnapshot> future = firestore.collection("events").document(id).get();
         com.google.cloud.firestore.DocumentSnapshot doc = future.get();
@@ -82,22 +83,16 @@ public class EventController {
         }
         
         Map<String, Object> data = doc.getData();
-        Object dt = data.get("dateTime");
-        String dtIso = null;
-        if (dt instanceof java.util.Date) {
-            dtIso = java.time.Instant.ofEpochMilli(((java.util.Date) dt).getTime()).toString();
-        } else if (dt != null) {
-            dtIso = dt.toString();
-        }
+        Map<String, Object> out = convertEventData(doc.getId(), data);
         
-        Map<String, Object> out = new HashMap<>(data);
-        out.put("id", doc.getId());
-        out.put("dateTime", dtIso);
-        
-        return ResponseEntity.ok(out);
+        // Add cache control headers for better client-side caching
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(5, TimeUnit.MINUTES).cachePublic())
+                .body(out);
     }
 
     @GetMapping
+    @Cacheable(value = "events", key = "#owner + '_' + #uidParam", unless = "#result == null")
     public ResponseEntity<?> listEvents(
             @RequestParam(name = "owner", required = false) Boolean owner,
             @RequestParam(name = "uid", required = false) String uidParam
@@ -118,57 +113,67 @@ public class EventController {
                     .whereEqualTo("createdBy", uid)
                     .get();
 
-            List<Map<String, Object>> results = new ArrayList<>();
-            for (QueryDocumentSnapshot doc : future.get().getDocuments()) {
-                Map<String, Object> data = doc.getData();
-                Object dt = data.get("dateTime");
-                String dtIso = null;
-                long dtMs = Long.MAX_VALUE; // push nulls to the end
-                if (dt instanceof java.util.Date) {
-                    dtMs = ((java.util.Date) dt).getTime();
-                    dtIso = java.time.Instant.ofEpochMilli(dtMs).toString();
-                } else if (dt != null) {
-                    // Attempt to parse string value if present
-                    try {
-                        dtIso = dt.toString();
-                        dtMs = java.time.Instant.parse(dtIso).toEpochMilli();
-                    } catch (Exception ignore) {
-                        // leave dtMs as MAX_VALUE
-                    }
-                }
-                Map<String, Object> out = new HashMap<>(data);
-                out.put("id", doc.getId());
-                out.put("dateTime", dtIso);
-                out.put("_dtMs", dtMs); // temporary for sorting
-                results.add(out);
-            }
-            // Sort ascending by date/time
-            results.sort((a, b) -> Long.compare(
-                    ((Number) a.getOrDefault("_dtMs", Long.MAX_VALUE)).longValue(),
-                    ((Number) b.getOrDefault("_dtMs", Long.MAX_VALUE)).longValue()
-            ));
-            // Remove the temp field
-            results.forEach(m -> m.remove("_dtMs"));
-            return ResponseEntity.ok(results);
+            List<Map<String, Object>> results = future.get().getDocuments().stream()
+                    .map(doc -> {
+                        Map<String, Object> eventData = convertEventData(doc.getId(), doc.getData());
+                        long dtMs = getDateTimeMillis(doc.getData().get("dateTime"));
+                        eventData.put("_dtMs", dtMs);
+                        return eventData;
+                    })
+                    .sorted((a, b) -> Long.compare(
+                            ((Number) a.getOrDefault("_dtMs", Long.MAX_VALUE)).longValue(),
+                            ((Number) b.getOrDefault("_dtMs", Long.MAX_VALUE)).longValue()
+                    ))
+                    .peek(m -> m.remove("_dtMs"))
+                    .collect(Collectors.toList());
+            
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(2, TimeUnit.MINUTES))
+                    .body(results);
         }
 
-    // Default: return all events (unfiltered)
+        // Default: return all events (unfiltered)
         ApiFuture<QuerySnapshot> future = firestore.collection("events").orderBy("dateTime").get();
-        List<Map<String, Object>> results = new ArrayList<>();
-        for (QueryDocumentSnapshot doc : future.get().getDocuments()) {
-            Map<String, Object> data = doc.getData();
-            Object dt = data.get("dateTime");
-            String dtIso = null;
-            if (dt instanceof java.util.Date) {
-                dtIso = java.time.Instant.ofEpochMilli(((java.util.Date) dt).getTime()).toString();
-            } else if (dt != null) {
-                dtIso = dt.toString();
-            }
-            Map<String, Object> out = new HashMap<>(data);
-            out.put("id", doc.getId());
-            out.put("dateTime", dtIso);
-            results.add(out);
+        List<Map<String, Object>> results = future.get().getDocuments().stream()
+                .map(doc -> convertEventData(doc.getId(), doc.getData()))
+                .collect(Collectors.toList());
+        
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(2, TimeUnit.MINUTES))
+                .body(results);
+    }
+
+    /**
+     * Helper method to convert event data with proper date formatting
+     */
+    private Map<String, Object> convertEventData(String id, Map<String, Object> data) {
+        Object dt = data.get("dateTime");
+        String dtIso = null;
+        if (dt instanceof java.util.Date) {
+            dtIso = java.time.Instant.ofEpochMilli(((java.util.Date) dt).getTime()).toString();
+        } else if (dt != null) {
+            dtIso = dt.toString();
         }
-        return ResponseEntity.ok(results);
+        
+        Map<String, Object> out = new HashMap<>(data);
+        out.put("id", id);
+        out.put("dateTime", dtIso);
+        return out;
+    }
+
+    /**
+     * Helper method to extract milliseconds from dateTime
+     */
+    private long getDateTimeMillis(Object dt) {
+        if (dt instanceof java.util.Date) {
+            return ((java.util.Date) dt).getTime();
+        } else if (dt != null) {
+            try {
+                return java.time.Instant.parse(dt.toString()).toEpochMilli();
+            } catch (Exception ignore) {
+                return Long.MAX_VALUE;
+            }
+        }
+        return Long.MAX_VALUE;
     }
 }
