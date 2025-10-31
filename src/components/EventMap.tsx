@@ -3,7 +3,6 @@
 
 import { useEffect, useRef } from "react";
 import L from "leaflet";
-import "leaflet-routing-machine";
 
 // Fix for default icon issues with webpack
 import "leaflet/dist/leaflet.css";
@@ -24,6 +23,9 @@ interface EventMapProps {
   eventLocation?: L.LatLng | null;
   userLocation?: L.LatLng | null;
   showRoute?: boolean;
+  routePath?: Array<{lat: number; lng: number}> | null;
+  startSnap?: {original: {lat: number; lng: number}; snapped: {lat: number; lng: number}} | null;
+  endSnap?: {original: {lat: number; lng: number}; snapped: {lat: number; lng: number}} | null;
 }
 
 export default function EventMap({
@@ -33,10 +35,14 @@ export default function EventMap({
   eventLocation,
   userLocation,
   showRoute = false,
+  routePath,
+  startSnap,
+  endSnap,
 }: EventMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
-  const routingControlRef = useRef<L.Routing.Control | null>(null);
+  const routePolylineRef = useRef<L.Polyline | null>(null);
+  const snapLinesRef = useRef<L.Polyline[]>([]);
   const markersRef = useRef<L.Marker[]>([]);
 
   useEffect(() => {
@@ -100,28 +106,48 @@ export default function EventMap({
     const map = mapInstanceRef.current;
     if (!map) return;
     
-    // Remove existing routing control if it exists
-    if (routingControlRef.current) {
-        map.removeControl(routingControlRef.current);
-        routingControlRef.current = null;
+    // Remove existing route polyline if it exists
+    if (routePolylineRef.current) {
+      map.removeLayer(routePolylineRef.current);
+      routePolylineRef.current = null;
     }
 
-    if (showRoute && userLocation && eventLocation) {
-    const routingControl = L.Routing.control(({
-      waypoints: [
-        L.latLng(userLocation.lat, userLocation.lng),
-        L.latLng(eventLocation.lat, eventLocation.lng)
-      ],
-      routeWhileDragging: true,
-      show: false,
-      addWaypoints: false,
-      fitSelectedRoutes: true,
-      lineOptions: ({ styles: [{ color: '#4169E1', opacity: 0.8, weight: 6 }] } as any),
-      createMarker: function() { return null; }
-    } as any)).addTo(map);
-        routingControlRef.current = routingControl;
+    // Remove existing snap lines
+    snapLinesRef.current.forEach(line => map.removeLayer(line));
+    snapLinesRef.current = [];
+
+    // Draw the custom route path if available
+    if (showRoute && routePath && routePath.length > 0) {
+      // Draw snap lines (original to snapped points) in red dashed style
+      if (startSnap) {
+        const snapLine = L.polyline(
+          [[startSnap.original.lat, startSnap.original.lng], [startSnap.snapped.lat, startSnap.snapped.lng]],
+          { color: '#EF4444', weight: 2, dashArray: '5, 5', opacity: 0.7 }
+        ).addTo(map);
+        snapLinesRef.current.push(snapLine);
+      }
+      if (endSnap) {
+        const snapLine = L.polyline(
+          [[endSnap.original.lat, endSnap.original.lng], [endSnap.snapped.lat, endSnap.snapped.lng]],
+          { color: '#EF4444', weight: 2, dashArray: '5, 5', opacity: 0.7 }
+        ).addTo(map);
+        snapLinesRef.current.push(snapLine);
+      }
+
+      // Draw the main route polyline in blue
+      const latlngs: L.LatLngExpression[] = routePath.map(p => [p.lat, p.lng]);
+      const polyline = L.polyline(latlngs, {
+        color: '#4169E1',
+        weight: 6,
+        opacity: 0.8,
+      }).addTo(map);
+      
+      routePolylineRef.current = polyline;
+      
+      // Fit map to show the entire route
+      map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
     }
-  }, [showRoute, userLocation, eventLocation]);
+  }, [showRoute, routePath, startSnap, endSnap]);
 
   return <div ref={mapRef} className="rounded-lg h-full w-full z-0" />;
 }
