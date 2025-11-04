@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { FirebaseClientProvider } from '@/firebase';
 import { Toaster } from "@/components/ui/toaster"
-import CursorRipple from "@/components/CursorRipple";
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -25,7 +24,6 @@ export default function RootLayout({
           crossOrigin=""/>
       </head>
       <body className="font-body antialiased app-bg min-h-screen">
-        <CursorRipple />
         <FirebaseClientProvider>
           {children}
           <Toaster />
