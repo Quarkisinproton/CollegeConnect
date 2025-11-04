@@ -9,6 +9,7 @@ import L from "leaflet";
 import { Loader } from "@/components/ui/loader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/PageHeader";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -395,13 +396,19 @@ export default function EventDetailsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="container py-8">
+      <div>
+        <PageHeader 
+          title={displayEvent.name}
+          description={displayEvent.description}
+          breadcrumbs={[
+            { label: "Events", href: "/dashboard" },
+            { label: displayEvent.name }
+          ]}
+        />
+        
         <div className="grid lg:grid-cols-5 gap-8">
           <div className="lg:col-span-2 space-y-6">
-              <h1 className="text-4xl font-extrabold tracking-tight">{displayEvent.name}</h1>
-              <p className="text-lg text-muted-foreground">{displayEvent.description}</p>
-              
-              <Card>
+              <Card className="shadow-soft rounded-lg bg-card/60 backdrop-blur animate-slide-up-fade">
                   <CardHeader>
                       <CardTitle>Event Details</CardTitle>
                   </CardHeader>
@@ -413,7 +420,7 @@ export default function EventDetailsPage() {
                   </CardContent>
               </Card>
 
-              <Button onClick={handleNavigateClick} disabled={isNavigating} className="w-full">
+              <Button onClick={handleNavigateClick} disabled={isNavigating} className="w-full transition-all duration-200 shadow-soft hover:shadow-elevated">
                   {isNavigating ? (
                     <>
                       <Loader className="mr-2 h-4 w-4 animate-spin" />
@@ -428,7 +435,7 @@ export default function EventDetailsPage() {
               </Button>
 
               {process.env.NODE_ENV === 'development' && (
-                <Card>
+                <Card className="shadow-soft rounded-lg bg-card/60 backdrop-blur">
                   <CardHeader>
                     <CardTitle>Dev: Test Without Being On Campus</CardTitle>
                   </CardHeader>
@@ -437,10 +444,10 @@ export default function EventDetailsPage() {
                       You can test routing by using a mock start point inside campus or by simply clicking on the map.
                     </p>
                     <div className="grid grid-cols-2 gap-2">
-                      <Button variant="secondary" onClick={() => handleUseMockLocation('gate')}>
+                      <Button variant="secondary" onClick={() => handleUseMockLocation('gate')} className="transition-all duration-200">
                         Use Mock Start (Gate)
                       </Button>
-                      <Button variant="secondary" onClick={() => handleUseMockLocation('quad')}>
+                      <Button variant="secondary" onClick={() => handleUseMockLocation('quad')} className="transition-all duration-200">
                         Use Mock Start (Quad)
                       </Button>
                     </div>
@@ -451,19 +458,21 @@ export default function EventDetailsPage() {
                 </Card>
               )}
           </div>
-          <div className="lg:col-span-3 h-[400px] lg:h-auto rounded-lg overflow-hidden border">
-              <EventMap 
-                eventLocation={eventLocation} 
-                userLocation={userLocation} 
-                showRoute={showRoute}
-                routePath={routePath}
-                startSnap={startSnap}
-                endSnap={endSnap}
-                interactive={true}
-                onLocationSelect={handleManualLocationSet}
-              />
+          <div className="lg:col-span-3 space-y-2">
+              <div className="h-[400px] lg:h-[600px] rounded-xl overflow-hidden shadow-soft">
+                  <EventMap 
+                    eventLocation={eventLocation} 
+                    userLocation={userLocation} 
+                    showRoute={showRoute}
+                    routePath={routePath}
+                    startSnap={startSnap}
+                    endSnap={endSnap}
+                    interactive={true}
+                    onLocationSelect={handleManualLocationSet}
+                  />
+              </div>
               {!showRoute && (
-                <p className="text-sm text-muted-foreground text-center mt-2">
+                <p className="text-sm text-muted-foreground text-center">
                   💡 Tip: Click "Navigate to Event" OR click on the map to manually set your start location
                 </p>
               )}

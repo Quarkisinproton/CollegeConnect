@@ -166,5 +166,5 @@ export default function EventMap({
     }
   }, [showRoute, routePath, startSnap, endSnap]);
 
-  return <div ref={mapRef} className="rounded-lg h-full w-full z-0" />;
+  return <div ref={mapRef} className="h-full w-full z-0" />;
 }

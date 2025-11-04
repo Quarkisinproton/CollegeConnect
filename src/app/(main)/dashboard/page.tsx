@@ -6,6 +6,7 @@ import { collection, query, orderBy, Timestamp } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
+import { PageHeader } from "@/components/PageHeader";
 import { format } from "date-fns";
 import type { CampusEvent } from "@/types";
 type DisplayEvent = Omit<CampusEvent, 'dateTime'> & { dateTime: Date };
@@ -27,17 +28,17 @@ function EventList() {
     return (
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {[...Array(3)].map((_, i) => (
-          <Card key={i} className="flex flex-col">
+          <Card key={i} className="flex flex-col shadow-soft rounded-lg bg-card/60 backdrop-blur animate-pulse">
             <CardHeader>
-              <div className="h-6 bg-muted rounded w-3/4 animate-pulse"></div>
-              <div className="h-4 bg-muted rounded w-1/2 mt-2 animate-pulse"></div>
+              <div className="h-6 bg-muted rounded w-3/4"></div>
+              <div className="h-4 bg-muted rounded w-1/2 mt-2"></div>
             </CardHeader>
             <CardContent className="flex-grow">
-               <div className="h-4 bg-muted rounded w-full animate-pulse mb-2"></div>
-               <div className="h-4 bg-muted rounded w-full animate-pulse"></div>
+               <div className="h-4 bg-muted rounded w-full mb-2"></div>
+               <div className="h-4 bg-muted rounded w-full"></div>
             </CardContent>
             <CardFooter>
-                <div className="h-10 bg-muted rounded w-24 animate-pulse"></div>
+                <div className="h-10 bg-muted rounded w-24"></div>
             </CardFooter>
           </Card>
         ))}
@@ -81,8 +82,12 @@ function EventList() {
   // Default (student) view: show all normalized events
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {normalized.map((event) => (
-        <Card key={event.id} className="flex flex-col">
+      {normalized.map((event, idx) => (
+        <Card 
+          key={event.id} 
+          className="flex flex-col shadow-soft rounded-lg bg-card/60 backdrop-blur transition-all duration-200 hover:shadow-elevated hover:scale-[1.02] animate-slide-up-fade"
+          style={{ animationDelay: `${idx * 50}ms` }}
+        >
             <CardHeader>
             <CardTitle className="truncate">{event.name}</CardTitle>
             <CardDescription>{format(toDate(event.dateTime as any), "EEEE, MMMM do, yyyy 'at' p")}</CardDescription>
@@ -91,7 +96,7 @@ function EventList() {
             <p className="line-clamp-3 text-sm text-muted-foreground">{event.description}</p>
           </CardContent>
           <CardFooter>
-            <Button asChild size="sm">
+            <Button asChild size="sm" className="transition-all duration-200">
               <Link href={`/events/${event.id}`}>View Details</Link>
             </Button>
           </CardFooter>
@@ -106,13 +111,11 @@ export default function DashboardPage() {
   const { user } = useUser();
 
   return (
-    <div className="container py-8">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">
-          {user?.role === 'president' ? "Event Management" : "Campus Events"}
-        </h1>
-      </div>
-
+    <div>
+      <PageHeader
+        title={user?.role === 'president' ? "Event Management" : "Campus Events"}
+        description={user?.role === 'president' ? "Manage and create events for your club" : "Discover and navigate to campus events"}
+      />
       <EventList />
     </div>
   );

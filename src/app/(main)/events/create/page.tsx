@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { PageHeader } from "@/components/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -126,50 +127,59 @@ export default function CreateEventPage() {
   }
 
   return (
-    <div className="container py-8">
-      <h1 className="text-3xl font-bold tracking-tight mb-8">Create New Event</h1>
+    <div>
+      <PageHeader
+        title="Create New Event"
+        description="Fill in the details below to create a new campus event"
+        breadcrumbs={[
+          { label: "Events", href: "/dashboard" },
+          { label: "Create Event" }
+        ]}
+      />
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="grid lg:grid-cols-2 gap-8">
           <div className="space-y-6">
-            <FormField control={form.control} name="name" render={({ field }) => (
-              <FormItem><FormLabel>Event Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="description" render={({ field }) => (
-              <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea rows={5} {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <div className="grid sm:grid-cols-2 gap-4">
-              <FormField control={form.control} name="date" render={({ field }) => (
-                <FormItem className="flex flex-col"><FormLabel>Date</FormLabel>
-                  <Popover><PopoverTrigger asChild>
-                      <FormControl>
-                        <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                  </PopoverContent></Popover><FormMessage />
-                </FormItem>
+            <div className="shadow-soft rounded-lg bg-card/60 backdrop-blur p-6 space-y-6 animate-slide-up-fade">
+              <FormField control={form.control} name="name" render={({ field }) => (
+                <FormItem><FormLabel>Event Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control} name="time" render={({ field }) => (
-                <FormItem><FormLabel>Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormField control={form.control} name="description" render={({ field }) => (
+                <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea rows={5} {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <div className="grid sm:grid-cols-2 gap-4">
+                <FormField control={form.control} name="date" render={({ field }) => (
+                  <FormItem className="flex flex-col"><FormLabel>Date</FormLabel>
+                    <Popover><PopoverTrigger asChild>
+                        <FormControl>
+                          <Button variant={"outline"} className={cn("pl-3 text-left font-normal transition-all duration-200", !field.value && "text-muted-foreground")}>
+                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                    </PopoverContent></Popover><FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="time" render={({ field }) => (
+                  <FormItem><FormLabel>Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <FormField control={form.control} name="locationName" render={({ field }) => (
+                  <FormItem><FormLabel>Location Name</FormLabel><FormControl><Input placeholder="e.g., Main Quad" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
             </div>
-             <FormField control={form.control} name="locationName" render={({ field }) => (
-                <FormItem><FormLabel>Location Name</FormLabel><FormControl><Input placeholder="e.g., Main Quad" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
           </div>
           <div className="space-y-2 flex flex-col">
             <FormLabel>Event Location</FormLabel>
             <p className="text-sm text-muted-foreground">Click on the map to set the event location.</p>
-            <div className="aspect-video lg:aspect-auto lg:flex-grow rounded-lg overflow-hidden border">
+            <div className="aspect-video lg:aspect-auto lg:flex-grow rounded-xl overflow-hidden shadow-soft animate-slide-up-fade" style={{ animationDelay: "100ms" }}>
                 <EventMap interactive onLocationSelect={setSelectedLocation} selectedLocation={selectedLocation} />
             </div>
           </div>
           <div className="lg:col-span-2">
-            <Button type="submit" disabled={isLoading} className="w-full lg:w-auto">
+            <Button type="submit" disabled={isLoading} className="w-full lg:w-auto transition-all duration-200 shadow-soft hover:shadow-elevated">
               {isLoading && <Loader className="mr-2 h-4 w-4" />} Create Event
             </Button>
           </div>
