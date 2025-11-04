@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Header() {
   const { user } = useUser();
@@ -41,22 +42,25 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center">
-        <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
+    <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-soft">
+      <div className="mx-auto flex h-16 max-w-7xl items-center px-4 md:px-6 lg:px-8">
+        <Link href="/dashboard" className="mr-6 flex items-center gap-2">
           <Building className="h-6 w-6 text-primary" />
-          <span className="font-bold">Campus Connect</span>
+          <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-base font-semibold text-transparent">
+            Campus Connect
+          </span>
         </Link>
-        <div className="flex flex-1 items-center justify-end space-x-4">
-          <nav className="flex items-center space-x-2">
+        <div className="flex flex-1 items-center justify-end gap-2">
+          <nav className="flex items-center gap-2">
             {user?.role === 'president' && (
-              <Button asChild>
+              <Button asChild className="shadow-soft">
                 <Link href="/events/create">
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Create Event
                 </Link>
               </Button>
             )}
+            <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">

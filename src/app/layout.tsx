@@ -23,7 +23,7 @@ export default function RootLayout({
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
           crossOrigin=""/>
       </head>
-      <body className="font-body antialiased">
+      <body className="font-body antialiased app-bg min-h-screen">
         <FirebaseClientProvider>
           {children}
           <Toaster />

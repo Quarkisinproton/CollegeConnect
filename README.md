@@ -140,3 +140,12 @@ MIT License - feel free to use this project for educational purposes.
 ---
 
 Built with ❤️ for college communities
+
+## 🎨 UI theming and modern polish
+
+- Ambient background: The app uses a subtle gradient background via the `app-bg` utility (defined in `src/app/globals.css`).
+- Theme toggle: A new `ThemeToggle` in the header switches between light and dark themes; your preference is saved in `localStorage`.
+- Softer shadows and motion: Tailwind adds `shadow-soft`/`shadow-elevated` and entrance animations (`animate-fade-in`, `animate-slide-up-fade`).
+- Layout container: Main app content is centered to `max-w-7xl` with improved spacing for a clean look.
+
+Customize the palette by editing CSS variables under `:root` and `.dark` in `globals.css`.

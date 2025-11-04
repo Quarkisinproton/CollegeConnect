@@ -2,9 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
+/* Global base tweaks for a cleaner, modern look */
+html { scroll-behavior: smooth; }
+body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
 @layer base {
   :root {
@@ -83,7 +83,7 @@ body {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-body;
   }
 }
 
@@ -91,3 +91,29 @@ body {
     height: 100%;
     width: 100%;
 }
+
+/* App ambient background: subtle radial gradients + optional grid */
+.app-bg {
+  background-image:
+    radial-gradient(1200px 800px at 10% -10%, hsl(var(--primary)/0.09), transparent 40%),
+    radial-gradient(900px 600px at 90% 0%, hsl(var(--accent)/0.12), transparent 45%);
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(to right, hsl(var(--border)/0.5) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border)/0.5) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Subtle entrance animations */
+@keyframes fade-in {
+  from { opacity: 0 }
+  to { opacity: 1 }
+}
+@keyframes slide-up-fade {
+  from { opacity: 0; transform: translateY(12px) }
+  to { opacity: 1; transform: translateY(0) }
+}
+.animate-fade-in { animation: fade-in 300ms ease-out both }
+.animate-slide-up-fade { animation: slide-up-fade 360ms ease-out both }
