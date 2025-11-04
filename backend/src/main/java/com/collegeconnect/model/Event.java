@@ -24,7 +24,6 @@ public class Event {
     private String creatorName;
     private Date createdAt;
     
-    // Default constructor
     public Event() {
         this.createdAt = new Date();
     }
