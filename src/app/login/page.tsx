@@ -116,7 +116,7 @@ function LoginPageContent() {
 
     return (
         <div className="flex min-h-screen w-full items-center justify-center p-4">
-            <Card className="w-full max-w-lg shadow-elevated">
+            <Card className="w-full max-w-lg glass-card glass-hover animate-slide-up-fade">
                 <CardHeader className="text-center">
                     <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                         <Building className="h-5 w-5" />

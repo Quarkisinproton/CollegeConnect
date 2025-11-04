@@ -85,7 +85,7 @@ function EventList() {
       {normalized.map((event, idx) => (
         <Card 
           key={event.id} 
-          className="flex flex-col shadow-soft rounded-lg bg-card/60 backdrop-blur transition-all duration-200 hover:shadow-elevated hover:scale-[1.02] animate-slide-up-fade"
+          className="flex flex-col glass-card glass-hover animate-slide-up-fade"
           style={{ animationDelay: `${idx * 50}ms` }}
         >
             <CardHeader>

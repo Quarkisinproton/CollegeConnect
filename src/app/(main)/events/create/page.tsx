@@ -139,7 +139,7 @@ export default function CreateEventPage() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="grid lg:grid-cols-2 gap-8">
           <div className="space-y-6">
-            <div className="shadow-soft rounded-lg bg-card/60 backdrop-blur p-6 space-y-6 animate-slide-up-fade">
+            <div className="glass-card p-6 space-y-6 animate-slide-up-fade">
               <FormField control={form.control} name="name" render={({ field }) => (
                 <FormItem><FormLabel>Event Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
@@ -174,7 +174,7 @@ export default function CreateEventPage() {
           <div className="space-y-2 flex flex-col">
             <FormLabel>Event Location</FormLabel>
             <p className="text-sm text-muted-foreground">Click on the map to set the event location.</p>
-            <div className="aspect-video lg:aspect-auto lg:flex-grow rounded-xl overflow-hidden shadow-soft animate-slide-up-fade" style={{ animationDelay: "100ms" }}>
+            <div className="aspect-video lg:aspect-auto lg:flex-grow rounded-xl overflow-hidden glass-card animate-slide-up-fade" style={{ animationDelay: "100ms" }}>
                 <EventMap interactive onLocationSelect={setSelectedLocation} selectedLocation={selectedLocation} />
             </div>
           </div>

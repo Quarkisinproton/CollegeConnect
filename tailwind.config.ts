@@ -100,6 +100,10 @@ export default {
           from: { opacity: '0', transform: 'translateY(12px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
+        ripple: {
+          '0%': { transform: 'translate(-50%, -50%) scale(0)', opacity: '1' },
+          '100%': { transform: 'translate(-50%, -50%) scale(4)', opacity: '0' },
+        },
         shine: {
           '0%': { 'background-position': '-200% 0' },
           '100%': { 'background-position': '200% 0' },
@@ -110,6 +114,7 @@ export default {
         'accordion-up': 'accordion-up 0.2s ease-out',
         'fade-in': 'fade-in 0.3s ease-out both',
         'slide-up-fade': 'slide-up-fade 0.36s ease-out both',
+        ripple: 'ripple 0.8s ease-out forwards',
         shine: 'shine 2.4s linear infinite',
       },
     },

@@ -408,7 +408,7 @@ export default function EventDetailsPage() {
         
         <div className="grid lg:grid-cols-5 gap-8">
           <div className="lg:col-span-2 space-y-6">
-              <Card className="shadow-soft rounded-lg bg-card/60 backdrop-blur animate-slide-up-fade">
+              <Card className="glass-card animate-slide-up-fade">
                   <CardHeader>
                       <CardTitle>Event Details</CardTitle>
                   </CardHeader>
@@ -420,7 +420,7 @@ export default function EventDetailsPage() {
                   </CardContent>
               </Card>
 
-              <Button onClick={handleNavigateClick} disabled={isNavigating} className="w-full transition-all duration-200 shadow-soft hover:shadow-elevated">
+              <Button onClick={handleNavigateClick} disabled={isNavigating} className="w-full transition-all duration-200 shadow-soft hover:shadow-elevated glass-hover">
                   {isNavigating ? (
                     <>
                       <Loader className="mr-2 h-4 w-4 animate-spin" />
@@ -435,7 +435,7 @@ export default function EventDetailsPage() {
               </Button>
 
               {process.env.NODE_ENV === 'development' && (
-                <Card className="shadow-soft rounded-lg bg-card/60 backdrop-blur">
+                <Card className="glass-card">
                   <CardHeader>
                     <CardTitle>Dev: Test Without Being On Campus</CardTitle>
                   </CardHeader>
@@ -459,7 +459,7 @@ export default function EventDetailsPage() {
               )}
           </div>
           <div className="lg:col-span-3 space-y-2">
-              <div className="h-[400px] lg:h-[600px] rounded-xl overflow-hidden shadow-soft">
+              <div className="h-[400px] lg:h-[600px] rounded-xl overflow-hidden shadow-soft glass-card">
                   <EventMap 
                     eventLocation={eventLocation} 
                     userLocation={userLocation} 
